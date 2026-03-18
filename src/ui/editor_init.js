@@ -2,15 +2,15 @@
 (function() {
     // --- Slash command definitions (B2B text icons, no emoji) ---
     const COMMANDS = [
-        { label: 'Heading 1', icon: 'H1', tag: 'h1' },
-        { label: 'Heading 2', icon: 'H2', tag: 'h2' },
-        { label: 'Heading 3', icon: 'H3', tag: 'h3' },
-        { label: 'Bullet List', icon: 'UL', tag: 'ul' },
-        { label: 'Numbered List', icon: 'OL', tag: 'ol' },
-        { label: 'Task List', icon: 'TL', html: '<ul><li><input type="checkbox"> </li></ul>' },
-        { label: 'Quote', icon: 'Q', tag: 'blockquote' },
-        { label: 'Code Block', icon: '{;}', tag: 'pre' },
-        { label: 'Divider', icon: 'HR', tag: 'hr' },
+        { label: 'Heading 1', icon: 'H\u2081', tag: 'h1' },
+        { label: 'Heading 2', icon: 'H\u2082', tag: 'h2' },
+        { label: 'Heading 3', icon: 'H\u2083', tag: 'h3' },
+        { label: 'Bullet List', icon: '\u2022', tag: 'ul' },
+        { label: 'Numbered List', icon: '\u2630', tag: 'ol' },
+        { label: 'Task List', icon: '\u2610', html: '<ul><li><input type="checkbox"> </li></ul>' },
+        { label: 'Quote', icon: '\u275D', tag: 'blockquote' },
+        { label: 'Code Block', icon: '\u2774\u2775', tag: 'pre' },
+        { label: 'Divider', icon: '\u2500', tag: 'hr' },
     ];
 
     // --- Ensure editor elements exist (idempotent) ---
@@ -53,15 +53,24 @@
             <button data-cmd="italic" title="Italic"><i>I</i></button>
             <button data-cmd="strikeThrough" title="Strike"><s>S</s></button>
             <span class="mote-tb-sep"></span>
-            <button data-cmd="formatBlock" data-val="h1" title="Heading 1">H1</button>
-            <button data-cmd="formatBlock" data-val="h2" title="Heading 2">H2</button>
-            <button data-cmd="formatBlock" data-val="h3" title="Heading 3">H3</button>
+            <button data-cmd="formatBlock" data-val="h1" title="Heading 1">H&#8321;</button>
+            <button data-cmd="formatBlock" data-val="h2" title="Heading 2">H&#8322;</button>
+            <button data-cmd="formatBlock" data-val="h3" title="Heading 3">H&#8323;</button>
             <span class="mote-tb-sep"></span>
-            <button data-cmd="insertUnorderedList" title="Bullet list">UL</button>
-            <button data-cmd="insertOrderedList" title="Numbered list">OL</button>
-            <button data-cmd="formatBlock" data-val="blockquote" title="Quote">Q</button>
-            <button data-cmd="formatBlock" data-val="pre" title="Code block">{;}</button>
-            <button data-cmd="createLink" title="Insert link">Lk</button>
+            <button data-cmd="insertUnorderedList" title="Bullet list">&#8226;</button>
+            <button data-cmd="insertOrderedList" title="Numbered list">&#9776;</button>
+            <button data-cmd="formatBlock" data-val="blockquote" title="Quote">&#10077;</button>
+            <button data-cmd="formatBlock" data-val="pre" title="Code block">&#10100;&#10101;</button>
+            <button data-cmd="createLink" title="Insert link">&#128279;</button>
+            <span class="mote-tb-sep"></span>
+            <button data-cmd="foreColor" data-val="#ef4444" title="Red"><span style="color:#ef4444">&#9679;</span></button>
+            <button data-cmd="foreColor" data-val="#f59e0b" title="Orange"><span style="color:#f59e0b">&#9679;</span></button>
+            <button data-cmd="foreColor" data-val="#22c55e" title="Green"><span style="color:#22c55e">&#9679;</span></button>
+            <button data-cmd="foreColor" data-val="#3b82f6" title="Blue"><span style="color:#3b82f6">&#9679;</span></button>
+            <button data-cmd="foreColor" data-val="#a855f7" title="Purple"><span style="color:#a855f7">&#9679;</span></button>
+            <button data-cmd="hiliteColor" data-val="#fef08a" title="Highlight">&#9618;</button>
+            <span class="mote-tb-sep"></span>
+            <button data-cmd="removeFormat" title="Clear formatting">&#8709;</button>
         `;
         toolbar.style.display = 'none';
         document.body.appendChild(toolbar);
@@ -72,9 +81,18 @@
             if (!btn) return;
             const cmd = btn.dataset.cmd;
             const val = btn.dataset.val || null;
-            if (cmd === 'createLink') {
+            if (cmd === 'foreColor' || cmd === 'hiliteColor') {
+                document.execCommand(cmd, false, val);
+            } else if (cmd === 'createLink') {
                 const url = prompt('Enter URL:');
                 if (url) document.execCommand('createLink', false, url);
+            } else if (cmd === 'removeFormat') {
+                // Clear inline formatting (bold, italic, underline, strike, etc.)
+                document.execCommand('removeFormat', false, null);
+                // Also unlink
+                document.execCommand('unlink', false, null);
+                // Reset block to plain paragraph
+                document.execCommand('formatBlock', false, '<p>');
             } else if (cmd === 'formatBlock') {
                 document.execCommand('formatBlock', false, '<' + val + '>');
             } else {
@@ -100,6 +118,172 @@
                 if (slashFiltered[idx]) applySlashCommand(slashFiltered[idx]);
             }
         });
+    }
+
+    // --- Block handle (hover grip, drag to reorder, click arrows) ---
+    if (!document.getElementById('mote-block-handle')) {
+        const handle = document.createElement('div');
+        handle.id = 'mote-block-handle';
+        handle.className = 'mote-block-handle';
+        handle.innerHTML =
+            '<button data-dir="up" title="Move up">&#9652;</button>' +
+            '<div class="mote-bh-grip" title="Drag to reorder">&#8942;&#8942;</div>' +
+            '<button data-dir="down" title="Move down">&#9662;</button>';
+        handle.style.display = 'none';
+        document.body.appendChild(handle);
+
+        // Drop indicator line between blocks
+        const dropLine = document.createElement('div');
+        dropLine.id = 'mote-block-dropline';
+        dropLine.className = 'mote-block-dropline';
+        dropLine.style.display = 'none';
+        document.body.appendChild(dropLine);
+
+        let hoveredBlock = null;
+        let dragBlock = null;
+
+        // --- Click up/down ---
+        handle.addEventListener('mousedown', function(e) {
+            const btn = e.target.closest('button');
+            if (!btn || !hoveredBlock) return;
+            e.preventDefault();
+            moveBlock(hoveredBlock, btn.dataset.dir);
+            setTimeout(function() { positionHandle(hoveredBlock); }, 10);
+        });
+
+        // --- Mouse-based drag from grip ---
+        const grip = handle.querySelector('.mote-bh-grip');
+        let dropTarget = null;
+        let dropAbove = true;
+
+        grip.addEventListener('mousedown', function(e) {
+            if (!hoveredBlock) return;
+            e.preventDefault();
+            e.stopPropagation();
+            dragBlock = hoveredBlock;
+            dragBlock.classList.add('mote-dragging-block');
+            handle.style.display = 'none';
+
+            function onMouseMove(ev) {
+                const editor = document.querySelector('.mote-ce-editor');
+                if (!editor || !dragBlock) return;
+                const target = document.elementFromPoint(ev.clientX, ev.clientY);
+                const block = target ? getTopBlock(target) : null;
+                if (block && block !== dragBlock && editor.contains(block)) {
+                    const rect = block.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    dropAbove = ev.clientY < midY;
+                    const lineY = dropAbove ? rect.top : rect.bottom;
+                    const editorRect = editor.getBoundingClientRect();
+                    dropLine.style.display = 'block';
+                    dropLine.style.top = (lineY + window.scrollY) + 'px';
+                    dropLine.style.left = editorRect.left + 'px';
+                    dropLine.style.width = editorRect.width + 'px';
+                    dropTarget = block;
+                } else {
+                    dropLine.style.display = 'none';
+                    dropTarget = null;
+                }
+            }
+
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                const editor = document.querySelector('.mote-ce-editor');
+                if (dragBlock && dropTarget && editor) {
+                    if (dropAbove) {
+                        editor.insertBefore(dragBlock, dropTarget);
+                    } else {
+                        if (dropTarget.nextSibling) {
+                            editor.insertBefore(dragBlock, dropTarget.nextSibling);
+                        } else {
+                            editor.appendChild(dragBlock);
+                        }
+                    }
+                    syncContent();
+                }
+                if (dragBlock) dragBlock.classList.remove('mote-dragging-block');
+                dragBlock = null;
+                dropTarget = null;
+                dropLine.style.display = 'none';
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+
+        function getTopBlock(el) {
+            const editor = document.querySelector('.mote-ce-editor');
+            if (!editor || !el) return null;
+            let node = el;
+            while (node && node.parentElement !== editor) {
+                node = node.parentElement;
+                if (!node) return null;
+            }
+            return node;
+        }
+
+        function positionHandle(block) {
+            if (!block || !block.parentElement) { handle.style.display = 'none'; return; }
+            const rect = block.getBoundingClientRect();
+            handle.style.display = 'flex';
+            handle.style.top = (rect.top + window.scrollY) + 'px';
+            handle.style.left = Math.max(0, rect.left - 34) + 'px';
+            handle.style.height = Math.min(rect.height, 48) + 'px';
+        }
+
+        let hideTimer = null;
+
+        function showHandle(block) {
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+            hoveredBlock = block;
+            positionHandle(block);
+        }
+
+        function hideHandle() {
+            if (hideTimer) return;
+            hideTimer = setTimeout(function() {
+                handle.style.display = 'none';
+                hoveredBlock = null;
+                hideTimer = null;
+            }, 200);
+        }
+
+        // Keep handle visible when hovering the handle itself
+        handle.addEventListener('mouseenter', function() {
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        });
+        handle.addEventListener('mouseleave', function() {
+            hideHandle();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (dragBlock) return;
+            const editor = document.querySelector('.mote-ce-editor');
+            if (!editor) return;
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            if (!target) return;
+            if (handle.contains(target)) return;
+            if (editor.contains(target)) {
+                const block = getTopBlock(target);
+                if (block) {
+                    showHandle(block);
+                    return;
+                }
+            }
+            hideHandle();
+        });
+    }
+
+    function moveBlock(block, dir) {
+        const editor = document.querySelector('.mote-ce-editor');
+        if (!editor || !block) return;
+        if (dir === 'up' && block.previousElementSibling) {
+            editor.insertBefore(block, block.previousElementSibling);
+        } else if (dir === 'down' && block.nextElementSibling) {
+            editor.insertBefore(block.nextElementSibling, block);
+        }
+        syncContent();
     }
 
     // --- Selection toolbar ---
@@ -208,27 +392,42 @@
             else if (e.key === 'Escape') { e.preventDefault(); hideSlash(); }
             return;
         }
-        // Escape from block elements (pre, blockquote) with Enter at end
+        // Escape from block elements with Enter:
+        // - blockquote: Enter at end exits to new paragraph
+        // - pre (code block): Enter at end when last line is empty exits (like Notion double-enter)
         if (e.key === 'Enter' && !e.shiftKey) {
             const sel = window.getSelection();
             if (sel && sel.isCollapsed && sel.rangeCount) {
-                const block = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+                const node = sel.anchorNode;
+                const block = node.nodeType === 1 ? node : node.parentElement;
                 const container = block ? block.closest('pre, blockquote') : null;
                 if (container) {
-                    const editor = container.closest('.mote-ce-editor');
-                    // Check if cursor is at the very end of the block
                     const range = sel.getRangeAt(0);
                     const testRange = document.createRange();
                     testRange.selectNodeContents(container);
                     testRange.setStart(range.endContainer, range.endOffset);
                     const textAfter = testRange.toString();
-                    if (textAfter.trim() === '') {
+                    const isAtEnd = textAfter === '' || textAfter === '\n';
+
+                    if (isAtEnd) {
+                        const isPre = container.tagName === 'PRE';
+                        if (isPre) {
+                            // Code block: only escape if last line is already empty (double-enter)
+                            const text = container.textContent || '';
+                            const lastNewline = text.lastIndexOf('\n');
+                            const lastLine = lastNewline >= 0 ? text.substring(lastNewline + 1) : text;
+                            if (lastLine.trim() !== '') {
+                                // Last line has content — just insert normal newline, don't escape
+                                return;
+                            }
+                            // Last line is empty — escape out, remove the trailing empty line
+                            container.textContent = text.substring(0, lastNewline >= 0 ? lastNewline : 0);
+                        }
+
                         e.preventDefault();
-                        // Insert a new paragraph after the block
                         const p = document.createElement('p');
                         p.innerHTML = '<br>';
                         container.after(p);
-                        // Move cursor into the new paragraph
                         const newRange = document.createRange();
                         newRange.setStart(p, 0);
                         newRange.collapse(true);
@@ -239,6 +438,29 @@
                     }
                 }
             }
+        }
+        // Alt+Up/Down: move block
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount) {
+                const node = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+                const editor = document.querySelector('.mote-ce-editor');
+                if (node && editor) {
+                    let block = node;
+                    while (block && block.parentElement !== editor) block = block.parentElement;
+                    if (block) {
+                        moveBlock(block, e.key === 'ArrowUp' ? 'up' : 'down');
+                        // Restore cursor in the moved block
+                        const range = document.createRange();
+                        range.selectNodeContents(block);
+                        range.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                }
+            }
+            return;
         }
         // Keyboard shortcuts
         if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
