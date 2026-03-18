@@ -19,7 +19,7 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
     let children_map = state.read().children_map();
     let root_items = children_map.get(&None).cloned().unwrap_or_default();
     let drop_pos = use_signal(|| Option::<DropPos>::None);
-    let drag_id = use_signal(|| Option::<String>::None);
+    let mut drag_id = use_signal(|| Option::<String>::None);
 
     let docs: Vec<Item> = root_items.iter()
         .filter(|i| i.item_type == ItemType::Document || i.item_type == ItemType::Folder)
@@ -47,7 +47,10 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
             div { class: "tree-container",
                 match section {
                     Section::Docs => rsx! {
-                        div { class: "section-header",
+                        div {
+                            class: "section-header drop-section",
+                            ondragover: move |e| { e.prevent_default(); },
+                            ondrop: move |e| { e.stop_propagation(); convert_to_section(state, drag_id, ItemType::Document); drag_id.set(None); },
                             span { "Documents" }
                             button { class: "add-btn", onclick: move |_| create_item(state, ItemType::Document), "+" }
                         }
@@ -57,7 +60,10 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                         if docs.is_empty() { p { class: "empty", "No documents yet" } }
                     },
                     Section::Tasks => rsx! {
-                        div { class: "section-header",
+                        div {
+                            class: "section-header drop-section",
+                            ondragover: move |e| { e.prevent_default(); },
+                            ondrop: move |e| { e.stop_propagation(); convert_to_section(state, drag_id, ItemType::Project); drag_id.set(None); },
                             span { "Projects & Tasks" }
                             div { style: "display: flex; gap: 4px;",
                                 button { class: "add-btn", title: "New project", onclick: move |_| create_item(state, ItemType::Project), "P+" }
@@ -70,7 +76,10 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                         if tasks.is_empty() { p { class: "empty", "No tasks yet" } }
                     },
                     Section::Notes => rsx! {
-                        div { class: "section-header",
+                        div {
+                            class: "section-header drop-section",
+                            ondragover: move |e| { e.prevent_default(); },
+                            ondrop: move |e| { e.stop_propagation(); convert_to_section(state, drag_id, ItemType::Note); drag_id.set(None); },
                             span { "Notes" }
                             button { class: "add-btn", onclick: move |_| create_item(state, ItemType::Note), "+" }
                         }
@@ -116,6 +125,20 @@ fn create_item(mut state: Signal<AppState>, item_type: ItemType) {
 
 fn can_accept_children(item_type: &ItemType) -> bool {
     matches!(item_type, ItemType::Project | ItemType::Folder)
+}
+
+/// Convert a dragged item to the target section's type.
+fn convert_to_section(state: Signal<AppState>, drag_id: Signal<Option<String>>, target_type: ItemType) {
+    if let Some(id) = drag_id.read().clone() {
+        let _ = with_storage(state, |storage| {
+            // Only convert if type is actually different
+            let item = storage.get_item(&id)?;
+            if item.item_type != target_type {
+                storage.convert_item_type(&id, target_type)?;
+            }
+            Ok(())
+        });
+    }
 }
 
 fn do_drop(
