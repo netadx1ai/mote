@@ -642,3 +642,102 @@ input:focus, textarea:focus { border-color: #528bff; }
 
 .node-icon.status-click { cursor: pointer; }
 .node-icon.status-click:hover { color: #528bff !important; }
+
+/* --- File Explorer --- */
+.fe-container {
+    display: flex; flex-direction: column; height: calc(100vh - 80px); width: 100%;
+}
+
+.fe-tab-bar {
+    display: flex; gap: 0; overflow-x: auto; border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 0; flex-shrink: 0; background: #1e1e1e;
+    scrollbar-width: none;
+}
+.fe-tab-bar::-webkit-scrollbar { display: none; }
+
+.fe-tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; font-size: 12px; cursor: pointer;
+    color: rgba(255,255,255,0.4); background: #1e1e1e;
+    border-right: 1px solid rgba(255,255,255,0.04);
+    white-space: nowrap; transition: all 0.1s; flex-shrink: 0;
+}
+.fe-tab:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); }
+.fe-tab.active {
+    background: #191919; color: rgba(255,255,255,0.9);
+    border-bottom: 2px solid #528bff;
+}
+.fe-tab-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.fe-tab-close {
+    font-size: 14px; width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; color: rgba(255,255,255,0.2);
+    opacity: 0; transition: all 0.1s;
+}
+.fe-tab:hover .fe-tab-close { opacity: 1; }
+.fe-tab-close:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+
+.fe-editor-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    margin-bottom: 0; flex-shrink: 0;
+}
+.fe-file-path {
+    font-size: 11px; color: rgba(255,255,255,0.25);
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+.fe-editor-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.fe-lang-badge {
+    font-size: 10px; padding: 2px 6px; border-radius: 3px;
+    background: rgba(82,139,255,0.12); color: #528bff;
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-weight: 600; text-transform: uppercase;
+}
+
+.fe-monaco-container {
+    flex: 1; width: 100%; min-height: 200px;
+    background: #191919; border: none; border-radius: 0;
+    overflow: hidden;
+}
+
+.fe-code-editor {
+    flex: 1; resize: none; width: 100%;
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px; line-height: 1.65;
+    background: #191919; border: none; border-radius: 0;
+    padding: 12px 0; overflow-y: auto;
+    color: rgba(255,255,255,0.85); tab-size: 4;
+    white-space: pre; overflow-wrap: normal;
+}
+.fe-code-editor:focus { border: none; outline: none; }
+
+.fe-path-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 0; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.04); flex-shrink: 0;
+}
+.fe-path-icon {
+    font-size: 11px; flex-shrink: 0; color: rgba(255,255,255,0.3);
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+}
+.fe-path-text {
+    font-size: 11px; color: rgba(255,255,255,0.3);
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.fe-tree { overflow-y: auto; flex: 1; }
+
+/* File explorer icons — small monospace glyphs */
+.fe-icon {
+    font-size: 10px; flex-shrink: 0; width: 16px; text-align: center;
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-weight: 700; line-height: 1;
+}
+
+.fe-chevron {
+    font-size: 9px; flex-shrink: 0; width: 12px; text-align: center;
+    color: rgba(255,255,255,0.25); transition: transform 0.12s;
+    display: inline-block; line-height: 1;
+}
