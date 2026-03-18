@@ -53,6 +53,7 @@
             <button data-cmd="italic" title="Italic"><i>I</i></button>
             <button data-cmd="strikeThrough" title="Strike"><s>S</s></button>
             <span class="mote-tb-sep"></span>
+            <button data-cmd="formatBlock" data-val="p" title="Normal text">P</button>
             <button data-cmd="formatBlock" data-val="h1" title="Heading 1">H&#8321;</button>
             <button data-cmd="formatBlock" data-val="h2" title="Heading 2">H&#8322;</button>
             <button data-cmd="formatBlock" data-val="h3" title="Heading 3">H&#8323;</button>
@@ -63,27 +64,129 @@
             <button data-cmd="formatBlock" data-val="pre" title="Code block">&#10100;&#10101;</button>
             <button data-cmd="createLink" title="Insert link">&#128279;</button>
             <span class="mote-tb-sep"></span>
-            <button data-cmd="foreColor" data-val="#ef4444" title="Red"><span style="color:#ef4444">&#9679;</span></button>
-            <button data-cmd="foreColor" data-val="#f59e0b" title="Orange"><span style="color:#f59e0b">&#9679;</span></button>
-            <button data-cmd="foreColor" data-val="#22c55e" title="Green"><span style="color:#22c55e">&#9679;</span></button>
-            <button data-cmd="foreColor" data-val="#3b82f6" title="Blue"><span style="color:#3b82f6">&#9679;</span></button>
-            <button data-cmd="foreColor" data-val="#a855f7" title="Purple"><span style="color:#a855f7">&#9679;</span></button>
-            <button data-cmd="hiliteColor" data-val="#fef08a" title="Highlight">&#9618;</button>
+            <button class="mote-color-trigger" data-type="fg" title="Text color"><span style="color:#d4d4d4">A</span><span class="mote-color-bar" style="background:#d4d4d4"></span></button>
+            <button class="mote-color-trigger" data-type="bg" title="Background color"><span class="mote-bg-icon">A</span><span class="mote-color-bar" style="background:#fef08a"></span></button>
             <span class="mote-tb-sep"></span>
             <button data-cmd="removeFormat" title="Clear formatting">&#8709;</button>
         `;
         toolbar.style.display = 'none';
         document.body.appendChild(toolbar);
 
+        // --- Color picker panel ---
+        const colorPanel = document.createElement('div');
+        colorPanel.id = 'mote-color-panel';
+        colorPanel.className = 'mote-color-panel';
+        colorPanel.style.display = 'none';
+        document.body.appendChild(colorPanel);
+
+        const COLORS = [
+            { label: 'White', val: '#ffffff' },
+            { label: 'Light gray', val: '#a0a0a0' },
+            { label: 'Red', val: '#ef4444' },
+            { label: 'Orange', val: '#f59e0b' },
+            { label: 'Yellow', val: '#eab308' },
+            { label: 'Green', val: '#22c55e' },
+            { label: 'Blue', val: '#3b82f6' },
+            { label: 'Purple', val: '#a855f7' },
+            { label: 'Pink', val: '#ec4899' },
+        ];
+        const BG_COLORS = [
+            { label: 'None', val: 'transparent' },
+            { label: 'Yellow', val: '#fef08a' },
+            { label: 'Green', val: '#bbf7d0' },
+            { label: 'Blue', val: '#bfdbfe' },
+            { label: 'Purple', val: '#e9d5ff' },
+            { label: 'Pink', val: '#fce7f3' },
+            { label: 'Red', val: '#fecaca' },
+            { label: 'Orange', val: '#fed7aa' },
+            { label: 'Gray', val: '#404040' },
+        ];
+
+        let colorPanelType = 'fg'; // 'fg' or 'bg'
+        let savedSelection = null;
+
+        function saveSelection() {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount) savedSelection = sel.getRangeAt(0).cloneRange();
+        }
+        function restoreSelection() {
+            if (savedSelection) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedSelection);
+            }
+        }
+
+        function showColorPanel(type, anchor) {
+            colorPanelType = type;
+            const colors = type === 'fg' ? COLORS : BG_COLORS;
+            colorPanel.innerHTML = colors.map(function(c) {
+                var swatch = c.val === 'transparent'
+                    ? '<span class="mote-swatch mote-swatch-none" title="' + c.label + '"></span>'
+                    : '<span class="mote-swatch" style="background:' + c.val + '" title="' + c.label + '"></span>';
+                return '<button data-color="' + c.val + '">' + swatch + '</button>';
+            }).join('');
+            var rect = anchor.getBoundingClientRect();
+            colorPanel.style.display = 'flex';
+            colorPanel.style.top = (rect.bottom + 4 + window.scrollY) + 'px';
+            colorPanel.style.left = rect.left + 'px';
+        }
+
+        function hideColorPanel() {
+            colorPanel.style.display = 'none';
+        }
+
+        colorPanel.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var btn = e.target.closest('button');
+            if (!btn) return;
+            var color = btn.dataset.color;
+            restoreSelection();
+            if (colorPanelType === 'fg') {
+                document.execCommand('foreColor', false, color);
+                // Update the bar color on the trigger button
+                var fgTrigger = toolbar.querySelector('.mote-color-trigger[data-type="fg"] .mote-color-bar');
+                if (fgTrigger) fgTrigger.style.background = color;
+            } else {
+                if (color === 'transparent') {
+                    document.execCommand('hiliteColor', false, 'transparent');
+                } else {
+                    document.execCommand('hiliteColor', false, color);
+                }
+                var bgTrigger = toolbar.querySelector('.mote-color-trigger[data-type="bg"] .mote-color-bar');
+                if (bgTrigger) bgTrigger.style.background = color === 'transparent' ? '#555' : color;
+            }
+            hideColorPanel();
+            syncContent();
+        });
+
+        // Hide color panel on outside click
+        document.addEventListener('mousedown', function(e) {
+            if (!colorPanel.contains(e.target) && !e.target.closest('.mote-color-trigger')) {
+                hideColorPanel();
+            }
+        });
+
         toolbar.addEventListener('mousedown', function(e) {
             e.preventDefault();
+            // Handle color trigger buttons
+            var colorTrigger = e.target.closest('.mote-color-trigger');
+            if (colorTrigger) {
+                saveSelection();
+                var type = colorTrigger.dataset.type;
+                if (colorPanel.style.display !== 'none' && colorPanelType === type) {
+                    hideColorPanel();
+                } else {
+                    showColorPanel(type, colorTrigger);
+                }
+                return;
+            }
             const btn = e.target.closest('button');
             if (!btn) return;
             const cmd = btn.dataset.cmd;
             const val = btn.dataset.val || null;
-            if (cmd === 'foreColor' || cmd === 'hiliteColor') {
-                document.execCommand(cmd, false, val);
-            } else if (cmd === 'createLink') {
+            if (cmd === 'createLink') {
                 const url = prompt('Enter URL:');
                 if (url) document.execCommand('createLink', false, url);
             } else if (cmd === 'removeFormat') {
