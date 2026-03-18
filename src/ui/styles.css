@@ -601,9 +601,8 @@ input:focus, textarea:focus { border-color: #528bff; }
     margin-left: 4px;
 }
 
-/* Section header drop target */
-.drop-section { transition: background 0.12s; border-radius: 4px; }
-.drop-section:hover { background: rgba(82,139,255,0.06); }
+/* Section tab drop target highlight (dragover) */
+.section-btn:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); }
 
 .node-icon.status-click { cursor: pointer; }
 .node-icon.status-click:hover { color: #528bff !important; }
