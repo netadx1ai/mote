@@ -1,0 +1,12 @@
+/target
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+
+# Workspace data (user content)
+.mote.db
