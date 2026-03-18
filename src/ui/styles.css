@@ -104,6 +104,8 @@ input:focus, textarea:focus { border-color: #528bff; }
 }
 .tree-node:hover { background: rgba(255,255,255,0.04); }
 .tree-node.active { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.95); }
+.tree-node-dir .node-title { color: rgba(255,255,255,0.45); }
+.tree-node-file .node-title { color: rgba(255,255,255,0.8); }
 
 .node-icon {
     font-size: 13px; flex-shrink: 0; width: 18px; text-align: center;
