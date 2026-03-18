@@ -179,6 +179,7 @@ fn TreeNode(
     let id_dragstart = item.id.clone();
     let id_click = item.id.clone();
     let id_delete = item.id.clone();
+    let id_add_task = item.id.clone();
     let id_status = item.id.clone();
     let task_status = item.status.clone();
 
@@ -243,6 +244,30 @@ fn TreeNode(
                     span { class: "node-icon", "{icon}" }
                 }
                 span { class: "node-title", "{item.title}" }
+                // Quick add task button (hover-reveal, projects only)
+                if is_container {
+                    button {
+                        class: "node-add-btn",
+                        title: "Add task",
+                        onclick: move |e| {
+                            e.stop_propagation();
+                            let parent = id_add_task.clone();
+                            let _ = with_storage(state, |storage| {
+                                let item = storage.create_item(CreateItemRequest {
+                                    title: "New Task".to_string(),
+                                    item_type: ItemType::Task,
+                                    parent_id: Some(parent.clone()),
+                                    content: None,
+                                    status: Some(TaskStatus::Todo),
+                                    priority: Some(TaskPriority::None),
+                                })?;
+                                state.write().active_item = Some(item);
+                                Ok(())
+                            });
+                        },
+                        "+"
+                    }
+                }
                 // Delete button (hover-reveal)
                 button {
                     class: "node-delete-btn",
