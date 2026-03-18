@@ -47,10 +47,14 @@ impl AppState {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok());
 
-        let workspace_path = saved.and_then(|c| c.workspace_path.map(PathBuf::from));
+        let workspace_path = saved
+            .and_then(|c| c.workspace_path.map(PathBuf::from))
+            .or_else(|| Some(PathBuf::from("/Volumes/T7Shield/Work2026/mote")));
 
         if let Some(ref wp) = workspace_path {
             if let Ok(storage) = Storage::new(wp) {
+                let _ = storage.files.ensure_dirs();
+                let _ = storage.sync_filesystem();
                 let tree = storage.get_tree().unwrap_or_default();
                 return AppState {
                     storage: Some(Arc::new(storage)),
@@ -107,6 +111,7 @@ pub fn open_workspace(mut state: Signal<AppState>, path: PathBuf) -> Result<(), 
     }
     let storage = Storage::new(&path)?;
     let _ = storage.files.ensure_dirs();
+    let _ = storage.sync_filesystem();
     let tree = storage.get_tree().unwrap_or_default();
     let mut st = state.write();
     st.storage = Some(Arc::new(storage));

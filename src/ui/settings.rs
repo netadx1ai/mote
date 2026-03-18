@@ -103,7 +103,7 @@ pub fn Settings(state: Signal<AppState>) -> Element {
                             if let Some(wp) = wp {
                                 let out = if out_dir.is_empty() { wp.parent().unwrap_or(&wp).to_path_buf() } else { PathBuf::from(&out_dir) };
                                 if !out.exists() { let _ = std::fs::create_dir_all(&out); }
-                                match backup::create_backup(&wp, &out) {
+                                match backup::create_backup(&crate::storage::data_dir(&wp), &out) {
                                     Ok(p) => set_msg(&mut status_msg, &format!("Backup: {}", p.display()), true),
                                     Err(e) => set_msg(&mut status_msg, &format!("Backup failed: {e}"), false),
                                 }
@@ -136,7 +136,7 @@ pub fn Settings(state: Signal<AppState>) -> Element {
                             if let Some(wp) = wp {
                                 // Release DB locks
                                 state.write().storage = None;
-                                let result = backup::restore_backup(&PathBuf::from(&zip), &wp);
+                                let result = backup::restore_backup(&PathBuf::from(&zip), &crate::storage::data_dir(&wp));
                                 // Re-open storage
                                 reopen_storage(state, &wp);
                                 match result {

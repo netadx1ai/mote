@@ -68,6 +68,32 @@ impl FileManager {
     pub fn ensure_dirs(&self) -> io::Result<()> {
         fs::create_dir_all(self.workspace_path.join("docs"))?;
         fs::create_dir_all(self.workspace_path.join("notes"))?;
+        fs::create_dir_all(self.workspace_path.join("projects"))?;
         Ok(())
+    }
+
+    pub fn delete_file(&self, relative_path: &str) -> io::Result<()> {
+        let full_path = self.safe_resolve(relative_path)?;
+        if full_path.exists() {
+            fs::remove_file(&full_path)?;
+        }
+        Ok(())
+    }
+
+    /// List all `.md` files in a subdirectory (e.g. "docs" or "notes"), returning relative paths.
+    pub fn list_md_files(&self, subdir: &str) -> Vec<String> {
+        let dir = self.workspace_path.join(subdir);
+        let mut files = Vec::new();
+        if let Ok(entries) = fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && path.extension().is_some_and(|e| e == "md") {
+                    if let Some(name) = path.file_name() {
+                        files.push(format!("{}/{}", subdir, name.to_string_lossy()));
+                    }
+                }
+            }
+        }
+        files
     }
 }

@@ -519,12 +519,25 @@ input:focus, textarea:focus { border-color: #528bff; }
 }
 
 /* Sidebar drag-drop */
-.tree-node.drop-target-node {
+.tree-node-wrap { position: relative; }
+.tree-node { transition: background 0.08s, box-shadow 0.12s, opacity 0.15s; }
+.tree-node.dragging { opacity: 0.35; }
+
+/* Invisible drop zone overlays */
+.drop-zone { position: absolute; left: 0; right: 0; z-index: 10; }
+.zone-top-half { top: 0; height: 50%; }
+.zone-bot-half { bottom: 0; height: 50%; }
+.zone-top-third { top: 0; height: 28%; }
+.zone-mid { top: 28%; height: 44%; }
+.zone-bot-third { bottom: 0; height: 28%; }
+
+/* Drop indicators (box-shadow = no layout shift) */
+.tree-node-wrap.drop-above > .tree-node { box-shadow: inset 0 2px 0 #528bff; }
+.tree-node-wrap.drop-below > .tree-node { box-shadow: inset 0 -2px 0 #528bff; }
+.tree-node-wrap.drop-into > .tree-node {
     background: rgba(82,139,255,0.15) !important;
-    outline: 1px dashed rgba(82,139,255,0.5);
-    outline-offset: -1px;
+    box-shadow: inset 0 0 0 1px rgba(82,139,255,0.5);
 }
-.tree-node.drop-above { border-top: 2px solid #528bff !important; margin-top: -2px; }
-.tree-node.drop-below { border-bottom: 2px solid #528bff !important; margin-bottom: -2px; }
+
 .node-icon.status-click { cursor: pointer; }
 .node-icon.status-click:hover { color: #528bff !important; }

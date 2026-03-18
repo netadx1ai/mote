@@ -2403,6 +2403,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mote"
+version = "0.1.0"
+dependencies = [
+ "ammonia",
+ "chrono",
+ "dioxus",
+ "dirs",
+ "pulldown-cmark",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "uuid",
+ "zip",
+]
+
+[[package]]
 name = "muda"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4002,22 +4018,6 @@ checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
-]
-
-[[package]]
-name = "tiny-notion"
-version = "0.1.0"
-dependencies = [
- "ammonia",
- "chrono",
- "dioxus",
- "dirs",
- "pulldown-cmark",
- "rusqlite",
- "serde",
- "serde_json",
- "uuid",
- "zip",
 ]
 
 [[package]]

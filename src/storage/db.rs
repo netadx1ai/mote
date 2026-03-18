@@ -122,6 +122,46 @@ impl Database {
         Ok(())
     }
 
+    /// Get ordered sibling IDs at a given parent level.
+    pub fn get_sibling_ids(&self, parent_id: Option<&str>) -> Result<Vec<String>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        if let Some(pid) = parent_id {
+            let mut stmt = conn.prepare(
+                "SELECT id FROM items WHERE parent_id = ?1 AND deleted = 0 ORDER BY sort_order, created_at"
+            )?;
+            stmt.query_map(params![pid], |row| row.get(0))?
+                .collect::<Result<Vec<String>, _>>()
+        } else {
+            let mut stmt = conn.prepare(
+                "SELECT id FROM items WHERE parent_id IS NULL AND deleted = 0 ORDER BY sort_order, created_at"
+            )?;
+            stmt.query_map([], |row| row.get(0))?
+                .collect::<Result<Vec<String>, _>>()
+        }
+    }
+
+    /// Reassign sort_order values to a list of IDs (0, 100, 200, ...).
+    pub fn reorder_siblings(&self, ids: &[&str]) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+        for (i, id) in ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE items SET sort_order = ?2, updated_at = ?3 WHERE id = ?1",
+                params![id, (i as i32) * 100, &now],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn update_file_path(&self, id: &str, file_path: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE items SET file_path = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, file_path, chrono::Utc::now().to_rfc3339()],
+        )?;
+        Ok(())
+    }
+
     pub fn get_tree(&self) -> Result<Vec<Item>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(

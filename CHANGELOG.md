@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.8.0] - 2026-03-18
+
+### Added
+- **Project `.md` files** — projects now stored as markdown files in `projects/`, same as docs and notes
+- **Filesystem sync** — auto-discovers `.md` files added externally to `docs/`, `notes/`, and `projects/` on startup
+  - Extracts title from first `# heading` (falls back to filename)
+  - Runs on app launch and workspace switch
+- **`mote-data/` data directory** — all DB and files now live under `workspace/mote-data/`, keeping the workspace root clean
+  - Auto-migration: legacy `.mote.db`, `docs/`, `notes/` at root are moved into `mote-data/`
+- **`bundle-macos.sh`** — build + deploy macOS `.app` bundle in one command
+
+### Fixed
+- **Sidebar drag-drop rewrite** — completely reworked for smooth reordering
+  - Invisible overlay drop zones (top/bottom halves for items, top/mid/bottom for containers)
+  - Proper sort_order via `reorder_siblings()` — renumbers all siblings (0, 100, 200...)
+  - Drop indicators use `box-shadow: inset` instead of `border + margin` (no layout shift)
+  - Replaced global `Mutex` with reactive `Signal` for drag tracking (no flickering)
+  - Dragged item shows reduced opacity for visual feedback
+
+### Changed
+- Backup/restore now targets `mote-data/` directory specifically
+- Updated README with current features, rebranded references, correct workspace structure
+
+## [0.7.0] - 2026-03-18
+
+### Added
+- **Claude Code skill** — `mote-dev` skill for AI-assisted development
+
 ## [0.6.0] - 2026-03-18
 
 ### Fixed

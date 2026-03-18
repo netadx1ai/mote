@@ -1,20 +1,26 @@
-# Tiny Notion
+# Mote
 
-A lightweight, offline-first Notion clone built entirely in Rust.
+A lightweight, offline-first workspace app built entirely in Rust.
 
 Documents, tasks, notes, and simple project management — stored as markdown files and SQLite.
 
 ## Features
 
 - **Documents** — Markdown editor with edit/split/preview modes, rendered with pulldown-cmark
+- **Formatting toolbar** — Bold, italic, strikethrough, code, headings, lists, tables, and more
+- **Slash commands** — Type `/` to open a searchable command palette (15 block types)
 - **Tasks** — Create tasks with status (todo/in-progress/done/cancelled) and priority (low/med/high/urgent)
 - **Sub-tasks** — Nest tasks under tasks or projects, see completion progress
-- **Projects** — Group tasks into projects with progress bars and status counts
+- **Projects** — Group tasks into projects with progress bars and status counts, stored as `.md` files
 - **Notes** — Quick-create date-stamped markdown notes
-- **Tree sidebar** — Navigate docs, tasks, and notes in a collapsible tree
-- **Flat-file storage** — Documents and notes saved as `.md` files (git-friendly)
+- **Built-in browser** — Multi-tab web browser with URL bar, auto-https, and search fallback
+- **Tree sidebar** — Navigate docs, tasks, notes, and settings with drag-drop reordering
+- **Filesystem sync** — Auto-discovers `.md` files added externally on startup
+- **Backup & restore** — Timestamped zip archives of your workspace data
+- **Export/import** — Portable JSON export with duplicate-aware import
+- **Flat-file storage** — Documents, notes, and projects saved as `.md` files (git-friendly)
 - **SQLite metadata** — Item hierarchy, task status/priority stored in SQLite
-- **Full-text search** — SQLite FTS5 index (planned UI integration)
+- **Full-text search** — SQLite FTS5 index
 - **Offline-first** — No internet required, everything runs locally
 
 ## Tech Stack
@@ -25,6 +31,7 @@ Documents, tasks, notes, and simple project management — stored as markdown fi
 | Database | SQLite via [rusqlite](https://github.com/rusqlite/rusqlite) (bundled) |
 | Search | SQLite FTS5 |
 | Markdown | [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) |
+| Sanitizer | [ammonia](https://github.com/rust-ammonia/ammonia) |
 | Content | Flat `.md` files |
 
 Single Rust binary. No JavaScript, no Node.js, no Electron.
@@ -36,17 +43,17 @@ Single Rust binary. No JavaScript, no Node.js, no Electron.
 cargo build --release
 ```
 
-The binary is at `target/release/tiny-notion`.
+The binary is at `target/release/mote`.
 
 ## Run
 
 ```bash
 cargo run
 # or
-./target/release/tiny-notion
+./target/release/mote
 ```
 
-On first launch, enter a workspace path (e.g. `~/Documents/my-workspace`). The app creates `docs/` and `notes/` directories and SQLite databases in that folder.
+On first launch, enter a workspace path (e.g. `~/Documents/my-workspace`). The app creates a `mote-data/` directory with `docs/`, `notes/`, and `projects/` subdirectories and a SQLite database.
 
 ## Dev
 
@@ -65,23 +72,23 @@ cargo run
 
 ```
 ~/my-workspace/
-├── .tiny-notion.db           # SQLite metadata
-├── .tiny-notion-fts.db       # Full-text search index
-├── docs/
-│   └── my-document.md
-└── notes/
-    └── 2026-03-18-note.md
+└── mote-data/
+    ├── .mote.db              # SQLite metadata + FTS index
+    ├── docs/
+    │   └── my-document.md
+    ├── notes/
+    │   └── 2026-03-18-note.md
+    └── projects/
+        └── my-project.md
 ```
 
-Documents and notes are plain markdown files — edit them in any editor, version them with git.
+All Mote data lives inside `mote-data/`, keeping the workspace root clean. Documents, notes, and projects are plain markdown files — edit them in any editor, version them with git. Files added externally are auto-discovered on startup.
 
 ## Roadmap
 
 - [ ] GitHub sync (push/pull workspace to a repo)
-- [ ] Drag-and-drop reordering
 - [ ] Keyboard shortcuts
 - [ ] Search UI
-- [ ] Mermaid diagram rendering (via JS interop or SVG generation)
 - [ ] Kanban board view for tasks
 
 ## License

@@ -2,24 +2,15 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 
 use crate::models::*;
+use crate::storage::ReorderPos;
 use crate::ui::app::{flush_editor_pending, with_storage, update_item_field, AppState, Section};
-
-/// Global drag state for sidebar
-static SIDEBAR_DRAG: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
-
-fn set_drag(id: Option<&str>) {
-    if let Ok(mut d) = SIDEBAR_DRAG.lock() { *d = id.map(|s| s.to_string()); }
-}
-fn get_drag() -> Option<String> {
-    SIDEBAR_DRAG.lock().ok().and_then(|d| d.clone())
-}
 
 /// Drop position relative to a tree node
 #[derive(Clone, PartialEq)]
 enum DropPos {
-    Above(String),  // Insert before this item (reorder)
-    Into(String),   // Move into this item as child (reparent)
-    Below(String),  // Insert after this item (reorder)
+    Above(String),
+    Into(String),
+    Below(String),
 }
 
 #[component]
@@ -27,7 +18,8 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
     let section = state.read().active_section.clone();
     let children_map = state.read().children_map();
     let root_items = children_map.get(&None).cloned().unwrap_or_default();
-    let mut drop_pos = use_signal(|| Option::<DropPos>::None);
+    let drop_pos = use_signal(|| Option::<DropPos>::None);
+    let drag_id = use_signal(|| Option::<String>::None);
 
     let docs: Vec<Item> = root_items.iter()
         .filter(|i| i.item_type == ItemType::Document || i.item_type == ItemType::Folder)
@@ -59,8 +51,8 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                             span { "Documents" }
                             button { class: "add-btn", onclick: move |_| create_item(state, ItemType::Document), "+" }
                         }
-                        for (idx, item) in docs.iter().enumerate() {
-                            TreeNode { state, item: item.clone(), depth: 0, idx: idx as i32, children_map: children_map.clone(), drop_pos }
+                        for item in docs.iter() {
+                            TreeNode { state, item: item.clone(), depth: 0, children_map: children_map.clone(), drop_pos, drag_id }
                         }
                         if docs.is_empty() { p { class: "empty", "No documents yet" } }
                     },
@@ -72,8 +64,8 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                                 button { class: "add-btn", title: "New task", onclick: move |_| create_item(state, ItemType::Task), "T+" }
                             }
                         }
-                        for (idx, item) in tasks.iter().enumerate() {
-                            TreeNode { state, item: item.clone(), depth: 0, idx: idx as i32, children_map: children_map.clone(), drop_pos }
+                        for item in tasks.iter() {
+                            TreeNode { state, item: item.clone(), depth: 0, children_map: children_map.clone(), drop_pos, drag_id }
                         }
                         if tasks.is_empty() { p { class: "empty", "No tasks yet" } }
                     },
@@ -82,8 +74,8 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                             span { "Notes" }
                             button { class: "add-btn", onclick: move |_| create_item(state, ItemType::Note), "+" }
                         }
-                        for (idx, item) in notes.iter().enumerate() {
-                            TreeNode { state, item: item.clone(), depth: 0, idx: idx as i32, children_map: children_map.clone(), drop_pos }
+                        for item in notes.iter() {
+                            TreeNode { state, item: item.clone(), depth: 0, children_map: children_map.clone(), drop_pos, drag_id }
                         }
                         if notes.is_empty() { p { class: "empty", "No notes yet" } }
                     },
@@ -126,14 +118,34 @@ fn can_accept_children(item_type: &ItemType) -> bool {
     matches!(item_type, ItemType::Project | ItemType::Folder)
 }
 
+fn do_drop(
+    state: Signal<AppState>,
+    mut drag_id: Signal<Option<String>>,
+    mut drop_pos: Signal<Option<DropPos>>,
+    target_id: &str,
+    pos: ReorderPos,
+) {
+    if let Some(dragged) = drag_id.read().clone() {
+        if dragged != target_id {
+            let target = target_id.to_string();
+            let _ = with_storage(state, |storage| {
+                storage.reorder_item(&dragged, &target, pos)?;
+                Ok(())
+            });
+        }
+    }
+    drag_id.set(None);
+    drop_pos.set(None);
+}
+
 #[component]
 fn TreeNode(
     state: Signal<AppState>,
     item: Item,
     depth: i32,
-    idx: i32,
     children_map: HashMap<Option<String>, Vec<Item>>,
     mut drop_pos: Signal<Option<DropPos>>,
+    mut drag_id: Signal<Option<String>>,
 ) -> Element {
     let active_id = state.read().active_item.as_ref().map(|i| i.id.clone());
     let is_active = active_id.as_deref() == Some(&item.id);
@@ -142,11 +154,16 @@ fn TreeNode(
     let is_container = can_accept_children(&item.item_type);
     let is_task = item.item_type == ItemType::Task;
 
-    // Check drop indicator state
+    // Drag state
+    let cur_drag = drag_id.read().clone();
+    let is_foreign_drag = cur_drag.is_some() && cur_drag.as_deref() != Some(&item.id);
+    let is_self_dragging = cur_drag.as_deref() == Some(&item.id);
+
+    // Drop indicator state
     let dp = drop_pos.read().clone();
-    let show_above = matches!(&dp, Some(DropPos::Above(id)) if id == &item.id);
-    let show_into = matches!(&dp, Some(DropPos::Into(id)) if id == &item.id);
-    let show_below = matches!(&dp, Some(DropPos::Below(id)) if id == &item.id);
+    let show_above = matches!(&dp, Some(DropPos::Above(x)) if x == &item.id);
+    let show_into = matches!(&dp, Some(DropPos::Into(x)) if x == &item.id);
+    let show_below = matches!(&dp, Some(DropPos::Below(x)) if x == &item.id);
 
     let icon = match item.item_type {
         ItemType::Folder => "F",
@@ -157,122 +174,131 @@ fn TreeNode(
     };
 
     let padding = format!("padding-left: {}px;", 12 + depth * 16);
-    let item_id_click = item.id.clone();
-    let item_id_drag = item.id.clone();
-    let item_id_over = item.id.clone();
-    let item_id_drop = item.id.clone();
-    let item_parent = item.parent_id.clone();
-    let item_type_drop = item.item_type.clone();
 
-    // Status cycle for tasks (click on icon)
-    let item_id_status = item.id.clone();
+    // Clones for event handlers
+    let id_dragstart = item.id.clone();
+    let id_click = item.id.clone();
+    let id_status = item.id.clone();
     let task_status = item.status.clone();
 
-    let mut class = String::from("tree-node");
-    if is_active { class.push_str(" active"); }
-    if show_into { class.push_str(" drop-target-node"); }
-    if show_above { class.push_str(" drop-above"); }
-    if show_below { class.push_str(" drop-below"); }
+    // Clones for drop zone ondragover handlers
+    let id_ov_above = item.id.clone();
+    let id_ov_into = item.id.clone();
+    let id_ov_below = item.id.clone();
+
+    // Clones for drop zone ondrop handlers
+    let id_dr_above = item.id.clone();
+    let id_dr_into = item.id.clone();
+    let id_dr_below = item.id.clone();
+
+    // Build CSS classes
+    let mut wrap_class = String::from("tree-node-wrap");
+    if show_above { wrap_class.push_str(" drop-above"); }
+    if show_into { wrap_class.push_str(" drop-into"); }
+    if show_below { wrap_class.push_str(" drop-below"); }
+
+    let mut node_class = String::from("tree-node");
+    if is_active { node_class.push_str(" active"); }
+    if is_self_dragging { node_class.push_str(" dragging"); }
 
     rsx! {
         div {
-            class: "{class}",
-            style: "{padding}",
-            draggable: "true",
-            ondragstart: move |_| {
-                set_drag(Some(&item_id_drag));
-            },
-            ondragend: move |_| {
-                set_drag(None);
-                drop_pos.set(None);
-            },
-            ondragover: move |e| {
-                e.prevent_default();
-                let drag_id = get_drag();
-                if drag_id.as_deref() == Some(&*item_id_over) { return; }
-
-                // Determine drop zone based on item type:
-                // - Containers (Project/Folder): drop INTO them
-                // - Others: drop ABOVE (reorder at same level)
-                if can_accept_children(&item.item_type) {
-                    drop_pos.set(Some(DropPos::Into(item_id_over.clone())));
-                } else {
-                    drop_pos.set(Some(DropPos::Above(item_id_over.clone())));
-                }
-            },
-            ondragleave: move |_| {
-                // Only clear if we're still the target
-                let dp = drop_pos.read().clone();
-                let dominated = match &dp {
-                    Some(DropPos::Above(id) | DropPos::Into(id) | DropPos::Below(id)) => id == &item.id,
-                    None => false,
-                };
-                if dominated { drop_pos.set(None); }
-            },
-            ondrop: {
-                let target_id = item_id_drop.clone();
-                let target_parent = item_parent.clone();
-                let target_idx = idx;
-                let target_type = item_type_drop.clone();
-                move |e| {
-                    e.stop_propagation();
-                    let drag_id = get_drag();
-                    if let Some(drag_id) = drag_id {
-                        if drag_id == target_id { set_drag(None); drop_pos.set(None); return; }
-
-                        if can_accept_children(&target_type) {
-                            // Drop INTO container: reparent
-                            let tid = target_id.clone();
-                            let _ = with_storage(state, |storage| {
-                                storage.move_item(&drag_id, Some(&tid), 0)?;
-                                Ok(())
-                            });
-                        } else {
-                            // Drop ABOVE: reorder at same level
-                            let new_order = target_idx * 10;
-                            let parent = target_parent.clone();
-                            let _ = with_storage(state, |storage| {
-                                storage.move_item(&drag_id, parent.as_deref(), new_order)?;
-                                Ok(())
-                            });
-                        }
-                    }
-                    set_drag(None);
+            class: "{wrap_class}",
+            // Main visible node
+            div {
+                class: "{node_class}",
+                style: "{padding}",
+                draggable: "true",
+                ondragstart: move |_| {
+                    drag_id.set(Some(id_dragstart.clone()));
+                },
+                ondragend: move |_| {
+                    drag_id.set(None);
                     drop_pos.set(None);
-                }
-            },
-            onclick: move |_| {
-                flush_editor_pending(state);
-                let _ = with_storage(state, |storage| {
-                    let loaded = storage.get_item(&item_id_click)?;
-                    state.write().active_item = Some(loaded);
-                    Ok(())
-                });
-            },
+                },
+                onclick: move |_| {
+                    flush_editor_pending(state);
+                    let _ = with_storage(state, |storage| {
+                        let loaded = storage.get_item(&id_click)?;
+                        state.write().active_item = Some(loaded);
+                        Ok(())
+                    });
+                },
 
-            // Task status icon — clickable to cycle status
-            if is_task {
-                span {
-                    class: "node-icon status-click",
-                    onclick: move |e| {
-                        e.stop_propagation(); // Don't trigger tree node click
-                        if let Some(ref st) = task_status {
-                            let next = st.next();
-                            update_item_field(state, &item_id_status, None, None, Some(next), None);
-                        }
-                    },
-                    "{icon}"
+                // Task status icon — clickable to cycle status
+                if is_task {
+                    span {
+                        class: "node-icon status-click",
+                        onclick: move |e| {
+                            e.stop_propagation();
+                            if let Some(ref st) = task_status {
+                                let next = st.next();
+                                update_item_field(state, &id_status, None, None, Some(next), None);
+                            }
+                        },
+                        "{icon}"
+                    }
+                } else {
+                    span { class: "node-icon", "{icon}" }
                 }
-            } else {
-                span { class: "node-icon", "{icon}" }
+                span { class: "node-title", "{item.title}" }
+                if has_children {
+                    span { style: "margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.2);", "{children.len()}" }
+                }
             }
-            span { class: "node-title", "{item.title}" }
-            if has_children {
-                span { style: "margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.2);", "{children.len()}" }
+
+            // Drop zones — invisible overlays that appear only during a foreign drag.
+            // For containers (Project/Folder): 3 zones (above / into / below).
+            // For other items: 2 zones (above / below).
+            if is_foreign_drag {
+                if is_container {
+                    div {
+                        class: "drop-zone zone-top-third",
+                        ondragover: move |e| { e.prevent_default(); drop_pos.set(Some(DropPos::Above(id_ov_above.clone()))); },
+                        ondrop: move |e| {
+                            e.stop_propagation();
+                            do_drop(state, drag_id, drop_pos, &id_dr_above, ReorderPos::Before);
+                        },
+                    }
+                    div {
+                        class: "drop-zone zone-mid",
+                        ondragover: move |e| { e.prevent_default(); drop_pos.set(Some(DropPos::Into(id_ov_into.clone()))); },
+                        ondrop: move |e| {
+                            e.stop_propagation();
+                            do_drop(state, drag_id, drop_pos, &id_dr_into, ReorderPos::Into);
+                        },
+                    }
+                    div {
+                        class: "drop-zone zone-bot-third",
+                        ondragover: move |e| { e.prevent_default(); drop_pos.set(Some(DropPos::Below(id_ov_below.clone()))); },
+                        ondrop: move |e| {
+                            e.stop_propagation();
+                            do_drop(state, drag_id, drop_pos, &id_dr_below, ReorderPos::After);
+                        },
+                    }
+                } else {
+                    div {
+                        class: "drop-zone zone-top-half",
+                        ondragover: move |e| { e.prevent_default(); drop_pos.set(Some(DropPos::Above(id_ov_above.clone()))); },
+                        ondrop: move |e| {
+                            e.stop_propagation();
+                            do_drop(state, drag_id, drop_pos, &id_dr_above, ReorderPos::Before);
+                        },
+                    }
+                    div {
+                        class: "drop-zone zone-bot-half",
+                        ondragover: move |e| { e.prevent_default(); drop_pos.set(Some(DropPos::Below(id_ov_below.clone()))); },
+                        ondrop: move |e| {
+                            e.stop_propagation();
+                            do_drop(state, drag_id, drop_pos, &id_dr_below, ReorderPos::After);
+                        },
+                    }
+                }
             }
         }
-        for (cidx, child) in children.iter().enumerate() {
-            TreeNode { state, item: child.clone(), depth: depth + 1, idx: cidx as i32, children_map: children_map.clone(), drop_pos }
+        // Children
+        for child in children.iter() {
+            TreeNode { state, item: child.clone(), depth: depth + 1, children_map: children_map.clone(), drop_pos, drag_id }
         }
     }
 }
