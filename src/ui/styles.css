@@ -273,6 +273,42 @@ input:focus, textarea:focus { border-color: #528bff; }
 .mote-float-toolbar button:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
 .mote-tb-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.08); margin: 0 2px; }
 
+/* --- Block Handle (move up/down, drag grip) --- */
+.mote-block-handle {
+    position: absolute; z-index: 150;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0; width: 28px;
+    opacity: 0.4; transition: opacity 0.15s;
+    padding: 2px;
+}
+.mote-block-handle:hover { opacity: 1; }
+.mote-block-handle button {
+    width: 24px; height: 18px; display: flex; align-items: center; justify-content: center;
+    border: none; background: none; border-radius: 3px;
+    color: rgba(255,255,255,0.4); cursor: pointer;
+    transition: all 0.1s; padding: 0; font-size: 11px;
+}
+.mote-block-handle button:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.95); }
+.mote-bh-grip {
+    color: rgba(255,255,255,0.25); cursor: grab; user-select: none;
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 18px; border-radius: 3px;
+    transition: all 0.1s; font-size: 12px; letter-spacing: -2px;
+}
+.mote-bh-grip:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.mote-bh-grip:active { cursor: grabbing; }
+
+/* Dragging block state */
+.mote-dragging-block { opacity: 0.3; }
+
+/* Drop indicator line */
+.mote-block-dropline {
+    position: absolute; z-index: 160;
+    height: 2px; background: #528bff; border-radius: 1px;
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(82,139,255,0.4);
+}
+
 /* --- Slash Menu (positioned near caret) --- */
 .mote-slash-menu {
     position: absolute; z-index: 200;

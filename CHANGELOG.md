@@ -20,7 +20,10 @@
   - MD/RT mode switch to toggle between rich text and raw markdown
   - Keyboard shortcuts: Cmd+B (bold), Cmd+I (italic), Cmd+U (underline)
   - B2B monospace text icons throughout (no emoji)
-- **Cross-section drag-drop** — drag items onto Docs/Tasks/Notes section headers to convert type (doc↔note↔project), files move between directories
+- **Block move** — hover any block to see ▴ grip ▾ handle; drag grip to reorder or click arrows; Alt+Up/Down keyboard shortcut
+- **Clear format** — toolbar button (∅) strips all inline formatting, links, and resets block to paragraph
+- **Text colors** — 5 color buttons (red/orange/green/blue/purple) + yellow highlight in floating toolbar
+- **Cross-section drag-drop** — drag items onto Docs/Tasks/Notes section tabs to convert type (doc↔note↔project), files move between directories
 - **Project quick-add** — hover-reveal `+` button on projects to create child tasks
 - **Sidebar delete button** — hover-reveal `×` button on every tree node for quick delete
 
@@ -29,6 +32,9 @@
 - **Auto-save reliability** — 3-layer save: JS setInterval (3s) → bridge sync → immediate storage write; plus save-on-item-switch
 - **Block escape** — Enter at end of code block/blockquote creates new paragraph; trailing paragraph auto-appended on load
 - **Cross-section drag freeze** — clear drag signals before type conversion; use global Mutex for cross-component drag ID
+- **Code block Enter** — only escapes on double-enter (empty last line), normal newlines inside
+- **Block drag** — custom mouse events instead of HTML5 DnD (unreliable in WebKit)
+- **Block handle hover** — 200ms hide delay prevents flicker when moving to handle
 - **Default workspace** — falls back to `/Volumes/T7Shield/Work2026/mote` when no config exists
 - **`bundle-macos.sh`** — build + deploy macOS `.app` bundle in one command
 
