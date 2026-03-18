@@ -226,8 +226,6 @@ fn FileTreeNode(
     let mut expanded = use_signal(|| false);
     let mut children = use_signal(|| Vec::<DirEntry>::new());
     let padding = format!("padding-left: {}px;", 8 + depth * 16);
-    let (icon, icon_color) = file_icon(&entry.path, entry.is_dir);
-    let icon_style = format!("color: {icon_color};");
     let entry_path = entry.path.clone();
     let is_dir = entry.is_dir;
     let is_expanded = *expanded.read();
@@ -236,7 +234,13 @@ fn FileTreeNode(
         t.path == entry_path && active_tab.read().as_ref() == Some(&i)
     });
 
-    let node_class = if is_active { "tree-node active" } else { "tree-node" };
+    let node_class = if is_active {
+        "tree-node active"
+    } else if is_dir {
+        "tree-node tree-node-dir"
+    } else {
+        "tree-node tree-node-file"
+    };
     let child_count = children.read().len();
 
     rsx! {
@@ -265,7 +269,6 @@ fn FileTreeNode(
                         "\u{25B8}"
                     }
                 }
-                span { class: "fe-icon", style: "{icon_style}", "{icon}" }
                 span { class: "node-title", "{entry.name}" }
                 if is_dir && is_expanded && child_count > 0 {
                     span { class: "node-child-count", "{child_count}" }
@@ -323,31 +326,36 @@ pub fn FileExplorerView(
     }).collect();
     let root_display = browse_root.to_string_lossy().to_string();
 
-    // Init Monaco once
-    if !*monaco_inited.read() {
-        monaco_inited.set(true);
-        init_monaco();
-    }
+    // Init Monaco once — use effect so it runs after DOM commit
+    use_effect(move || {
+        if !*monaco_inited.read() {
+            monaco_inited.set(true);
+            init_monaco();
+        }
+    });
 
-    // Mount/switch Monaco when active tab changes
-    if let Some(idx) = active_idx {
-        let t = tabs.read();
-        if let Some(tab) = t.get(idx) {
-            let tab_id = tab.path.to_string_lossy().to_string();
-            let prev = prev_tab_id.read().clone();
-            if prev != tab_id {
-                let language = ext_to_language(&tab.path);
-                let content = tab.content.clone();
-                drop(t);
-                if prev.is_empty() {
-                    mount_monaco(&content, language, &tab_id);
-                } else {
-                    switch_monaco_tab(&content, language, &tab_id);
+    // Mount/switch Monaco when active tab changes — must run after DOM commit
+    use_effect(move || {
+        let active_idx = active_tab.read().clone();
+        if let Some(idx) = active_idx {
+            let t = tabs.read();
+            if let Some(tab) = t.get(idx) {
+                let tab_id = tab.path.to_string_lossy().to_string();
+                let prev = prev_tab_id.read().clone();
+                if prev != tab_id {
+                    let language = ext_to_language(&tab.path).to_string();
+                    let content = tab.content.clone();
+                    drop(t);
+                    if prev.is_empty() {
+                        mount_monaco(&content, &language, &tab_id);
+                    } else {
+                        switch_monaco_tab(&content, &language, &tab_id);
+                    }
+                    prev_tab_id.set(tab_id);
                 }
-                prev_tab_id.set(tab_id);
             }
         }
-    }
+    });
 
     rsx! {
         div { class: "fe-container",
