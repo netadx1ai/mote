@@ -1,9 +1,11 @@
 use dioxus::prelude::*;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::models::*;
 use crate::storage::ReorderPos;
 use crate::ui::app::{flush_editor_pending, with_storage, update_item_field, AppState, Section};
+use crate::ui::file_explorer::{FileExplorerSidebar, FileTab};
 
 /// Drop position relative to a tree node
 #[derive(Clone, PartialEq)]
@@ -14,7 +16,12 @@ enum DropPos {
 }
 
 #[component]
-pub fn Sidebar(state: Signal<AppState>) -> Element {
+pub fn Sidebar(
+    state: Signal<AppState>,
+    file_tabs: Signal<Vec<FileTab>>,
+    active_file_tab: Signal<Option<usize>>,
+    fe_browse_root: Signal<Option<PathBuf>>,
+) -> Element {
     let section = state.read().active_section.clone();
     let children_map = state.read().children_map();
     let root_items = children_map.get(&None).cloned().unwrap_or_default();
@@ -59,6 +66,7 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                     ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Note); state.write().active_section = Section::Notes; },
                     "Notes"
                 }
+                div { class: if section == Section::Files { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Files, "Files" }
                 div { class: if section == Section::Browser { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Browser, "Web" }
                 div { class: if section == Section::Settings { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Settings, "Cfg" }
             }
@@ -96,6 +104,12 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                             TreeNode { state, item: item.clone(), depth: 0, children_map: children_map.clone(), drop_pos, drag_id }
                         }
                         if notes.is_empty() { p { class: "empty", "No notes yet" } }
+                    },
+                    Section::Files => {
+                        let workspace = state.read().workspace_path.clone().unwrap_or_default();
+                        rsx! {
+                            FileExplorerSidebar { workspace_root: workspace, tabs: file_tabs, active_tab: active_file_tab, browse_root: fe_browse_root }
+                        }
                     },
                     Section::Browser => rsx! {
                         div { class: "section-header", span { "Browser" } }

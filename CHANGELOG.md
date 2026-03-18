@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.0] - 2026-03-18
+
+### Added
+- **File explorer tab** — new "Files" section in sidebar for browsing and editing arbitrary files
+  - Lazy directory tree — scans one level at a time, expands on click (no freeze on large dirs)
+  - Multi-tab file editor with Monaco Editor (VS Code engine) loaded from CDN
+  - Syntax highlighting for 20+ languages (rust, js/ts, python, go, etc.)
+  - Custom mote-dark theme matching app palette
+  - Cmd+S save, dirty indicator, file path breadcrumb
+  - Native folder picker via `rfd` crate — browse any directory on disk
+  - Create new files (+), delete files from editor header
+  - Minimal icons: triangle for folders, dash for files
+
+### Dependencies
+- Added `rfd` 0.15 for native file dialogs
+
 ## [0.8.0] - 2026-03-18
 
 ### Added

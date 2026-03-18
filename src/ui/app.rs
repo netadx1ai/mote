@@ -7,6 +7,7 @@ use crate::models::*;
 use crate::storage::Storage;
 use crate::ui::browser::BrowserView;
 use crate::ui::editor::Editor;
+use crate::ui::file_explorer::{FileExplorerView, FileTab};
 use crate::ui::settings::Settings;
 use crate::ui::sidebar::Sidebar;
 use crate::ui::task_view::TaskView;
@@ -25,6 +26,7 @@ pub enum Section {
     Docs,
     Tasks,
     Notes,
+    Files,
     Browser,
     Settings,
 }
@@ -204,12 +206,15 @@ const STYLES: &str = include_str!("styles.css");
 pub fn App() -> Element {
     let state = use_signal(|| AppState::new());
     let has_workspace = state.read().storage.is_some();
+    let file_tabs: Signal<Vec<FileTab>> = use_signal(|| Vec::new());
+    let active_file_tab: Signal<Option<usize>> = use_signal(|| None);
+    let fe_browse_root: Signal<Option<PathBuf>> = use_signal(|| None);
 
     rsx! {
         style { {STYLES} }
         if has_workspace {
             div { class: "app-shell",
-                Sidebar { state }
+                Sidebar { state, file_tabs, active_file_tab, fe_browse_root }
                 main { class: "content",
                     {
                         let st = state.read();
@@ -217,6 +222,11 @@ pub fn App() -> Element {
                         if section == Section::Settings {
                             drop(st);
                             rsx! { Settings { state } }
+                        } else if section == Section::Files {
+                            let ws = st.workspace_path.clone();
+                            drop(st);
+                            let root = fe_browse_root.read().clone().or(ws).unwrap_or_default();
+                            rsx! { FileExplorerView { tabs: file_tabs, active_tab: active_file_tab, browse_root: root } }
                         } else if section == Section::Browser {
                             drop(st);
                             rsx! { BrowserView {} }

@@ -14,3 +14,4 @@ dirs = "6"
 pulldown-cmark = "0.12"
 ammonia = "4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+rfd = "0.15"
