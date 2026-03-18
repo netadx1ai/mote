@@ -153,6 +153,15 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_item_type(&self, id: &str, item_type: &str, file_path: Option<&str>) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE items SET item_type = ?2, file_path = ?3, parent_id = NULL, updated_at = ?4 WHERE id = ?1",
+            params![id, item_type, file_path, chrono::Utc::now().to_rfc3339()],
+        )?;
+        Ok(())
+    }
+
     pub fn update_file_path(&self, id: &str, file_path: &str) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         conn.execute(

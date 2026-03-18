@@ -161,6 +161,49 @@ impl Storage {
         Ok(item)
     }
 
+    /// Convert an item to a different type (e.g. note → doc, doc → project).
+    /// Moves the file to the correct directory and updates DB.
+    pub fn convert_item_type(&self, id: &str, new_type: ItemType) -> Result<(), String> {
+        let item = self.db.get_item(id).map_err(|e| e.to_string())?;
+        let short_id = &item.id[..8];
+        let slug = slugify(&item.title);
+
+        // Load content from old file if exists
+        let content = if let Some(ref fp) = item.file_path {
+            self.files.read_file(fp).ok()
+        } else {
+            item.content.clone()
+        };
+
+        // Determine new file path
+        let new_file_path = match new_type {
+            ItemType::Document => Some(format!("docs/{slug}-{short_id}.md")),
+            ItemType::Note => Some(format!("notes/{slug}-{short_id}.md")),
+            ItemType::Project => Some(format!("projects/{slug}-{short_id}.md")),
+            _ => None,
+        };
+
+        // Write content to new file
+        if let Some(ref new_fp) = new_file_path {
+            let c = content.as_deref().unwrap_or("");
+            self.files.write_file(new_fp, c).map_err(|e| e.to_string())?;
+        }
+
+        // Delete old file
+        if let Some(ref old_fp) = item.file_path {
+            if new_file_path.as_deref() != Some(old_fp.as_str()) {
+                let _ = self.files.delete_file(old_fp);
+            }
+        }
+
+        // Update DB
+        self.db.update_item_type(id, new_type.as_str(), new_file_path.as_deref())
+            .map_err(|e| e.to_string())?;
+
+        git_commit_async(self.data_path.clone(), format!("convert: {} → {}", item.title, new_type.as_str()));
+        Ok(())
+    }
+
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
         self.db.soft_delete(id).map_err(|e| e.to_string())?;
         let _ = self.db.remove_from_index(id);

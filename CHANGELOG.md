@@ -20,8 +20,12 @@
   - MD/RT mode switch to toggle between rich text and raw markdown
   - Keyboard shortcuts: Cmd+B (bold), Cmd+I (italic), Cmd+U (underline)
   - B2B monospace text icons throughout (no emoji)
+- **Cross-section drag-drop** — drag items onto Docs/Tasks/Notes section headers to convert type (doc↔note↔project), files move between directories
 - **Project quick-add** — hover-reveal `+` button on projects to create child tasks
 - **Sidebar delete button** — hover-reveal `×` button on every tree node for quick delete
+
+### Fixed
+- **Window title** — was "Dioxus App", now shows "Mote" with 1200x800 default size
 - **Default workspace** — falls back to `/Volumes/T7Shield/Work2026/mote` when no config exists
 - **`bundle-macos.sh`** — build + deploy macOS `.app` bundle in one command
 
