@@ -26,6 +26,9 @@
 
 ### Fixed
 - **Window title** — was "Dioxus App", now shows "Mote" with 1200x800 default size
+- **Auto-save reliability** — 3-layer save: JS setInterval (3s) → bridge sync → immediate storage write; plus save-on-item-switch
+- **Block escape** — Enter at end of code block/blockquote creates new paragraph; trailing paragraph auto-appended on load
+- **Cross-section drag freeze** — clear drag signals before type conversion; use global Mutex for cross-component drag ID
 - **Default workspace** — falls back to `/Volumes/T7Shield/Work2026/mote` when no config exists
 - **`bundle-macos.sh`** — build + deploy macOS `.app` bundle in one command
 

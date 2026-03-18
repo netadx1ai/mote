@@ -18,7 +18,7 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
     let section = state.read().active_section.clone();
     let children_map = state.read().children_map();
     let root_items = children_map.get(&None).cloned().unwrap_or_default();
-    let drop_pos = use_signal(|| Option::<DropPos>::None);
+    let mut drop_pos = use_signal(|| Option::<DropPos>::None);
     let mut drag_id = use_signal(|| Option::<String>::None);
 
     let docs: Vec<Item> = root_items.iter()
@@ -38,19 +38,34 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                 span { class: "app-name", "Mote" }
             }
             nav { class: "sections",
-                button { class: if section == Section::Docs { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Docs, "Docs" }
-                button { class: if section == Section::Tasks { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Tasks, "Tasks" }
-                button { class: if section == Section::Notes { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Notes, "Notes" }
-                button { class: if section == Section::Browser { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Browser, "Web" }
-                button { class: if section == Section::Settings { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Settings, "Cfg" }
+                div {
+                    class: if section == Section::Docs { "section-btn active" } else { "section-btn" },
+                    onclick: move |_| state.write().active_section = Section::Docs,
+                    ondragover: move |e| { e.prevent_default(); },
+                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Document); state.write().active_section = Section::Docs; },
+                    "Docs"
+                }
+                div {
+                    class: if section == Section::Tasks { "section-btn active" } else { "section-btn" },
+                    onclick: move |_| state.write().active_section = Section::Tasks,
+                    ondragover: move |e| { e.prevent_default(); },
+                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Project); state.write().active_section = Section::Tasks; },
+                    "Tasks"
+                }
+                div {
+                    class: if section == Section::Notes { "section-btn active" } else { "section-btn" },
+                    onclick: move |_| state.write().active_section = Section::Notes,
+                    ondragover: move |e| { e.prevent_default(); },
+                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Note); state.write().active_section = Section::Notes; },
+                    "Notes"
+                }
+                div { class: if section == Section::Browser { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Browser, "Web" }
+                div { class: if section == Section::Settings { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Settings, "Cfg" }
             }
             div { class: "tree-container",
                 match section {
                     Section::Docs => rsx! {
-                        div {
-                            class: "section-header drop-section",
-                            ondragover: move |e| { e.prevent_default(); },
-                            ondrop: move |e| { e.stop_propagation(); convert_to_section(state, drag_id, ItemType::Document); drag_id.set(None); },
+                        div { class: "section-header",
                             span { "Documents" }
                             button { class: "add-btn", onclick: move |_| create_item(state, ItemType::Document), "+" }
                         }
@@ -60,10 +75,7 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                         if docs.is_empty() { p { class: "empty", "No documents yet" } }
                     },
                     Section::Tasks => rsx! {
-                        div {
-                            class: "section-header drop-section",
-                            ondragover: move |e| { e.prevent_default(); },
-                            ondrop: move |e| { e.stop_propagation(); convert_to_section(state, drag_id, ItemType::Project); drag_id.set(None); },
+                        div { class: "section-header",
                             span { "Projects & Tasks" }
                             div { style: "display: flex; gap: 4px;",
                                 button { class: "add-btn", title: "New project", onclick: move |_| create_item(state, ItemType::Project), "P+" }
@@ -76,10 +88,7 @@ pub fn Sidebar(state: Signal<AppState>) -> Element {
                         if tasks.is_empty() { p { class: "empty", "No tasks yet" } }
                     },
                     Section::Notes => rsx! {
-                        div {
-                            class: "section-header drop-section",
-                            ondragover: move |e| { e.prevent_default(); },
-                            ondrop: move |e| { e.stop_propagation(); convert_to_section(state, drag_id, ItemType::Note); drag_id.set(None); },
+                        div { class: "section-header",
                             span { "Notes" }
                             button { class: "add-btn", onclick: move |_| create_item(state, ItemType::Note), "+" }
                         }
@@ -127,17 +136,28 @@ fn can_accept_children(item_type: &ItemType) -> bool {
     matches!(item_type, ItemType::Project | ItemType::Folder)
 }
 
+/// Global drag ID for cross-section drops (avoids signal re-render issues)
+static CROSS_DRAG_ID: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+fn set_cross_drag(id: Option<&str>) {
+    if let Ok(mut d) = CROSS_DRAG_ID.lock() { *d = id.map(|s| s.to_string()); }
+}
+fn get_cross_drag() -> Option<String> {
+    CROSS_DRAG_ID.lock().ok().and_then(|d| d.clone())
+}
+
 /// Convert a dragged item to the target section's type.
-fn convert_to_section(state: Signal<AppState>, drag_id: Signal<Option<String>>, target_type: ItemType) {
-    if let Some(id) = drag_id.read().clone() {
+fn convert_to_section(mut state: Signal<AppState>, target_type: ItemType) {
+    if let Some(id) = get_cross_drag() {
+        let target = target_type.clone();
         let _ = with_storage(state, |storage| {
-            // Only convert if type is actually different
             let item = storage.get_item(&id)?;
-            if item.item_type != target_type {
-                storage.convert_item_type(&id, target_type)?;
+            if item.item_type != target {
+                storage.convert_item_type(&id, target)?;
             }
             Ok(())
         });
+        set_cross_drag(None);
     }
 }
 
@@ -236,10 +256,12 @@ fn TreeNode(
                 draggable: "true",
                 ondragstart: move |_| {
                     drag_id.set(Some(id_dragstart.clone()));
+                    set_cross_drag(Some(&id_dragstart));
                 },
                 ondragend: move |_| {
                     drag_id.set(None);
                     drop_pos.set(None);
+                    set_cross_drag(None);
                 },
                 onclick: move |_| {
                     flush_editor_pending(state);

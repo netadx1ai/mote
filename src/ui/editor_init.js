@@ -208,6 +208,39 @@
             else if (e.key === 'Escape') { e.preventDefault(); hideSlash(); }
             return;
         }
+        // Escape from block elements (pre, blockquote) with Enter at end
+        if (e.key === 'Enter' && !e.shiftKey) {
+            const sel = window.getSelection();
+            if (sel && sel.isCollapsed && sel.rangeCount) {
+                const block = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+                const container = block ? block.closest('pre, blockquote') : null;
+                if (container) {
+                    const editor = container.closest('.mote-ce-editor');
+                    // Check if cursor is at the very end of the block
+                    const range = sel.getRangeAt(0);
+                    const testRange = document.createRange();
+                    testRange.selectNodeContents(container);
+                    testRange.setStart(range.endContainer, range.endOffset);
+                    const textAfter = testRange.toString();
+                    if (textAfter.trim() === '') {
+                        e.preventDefault();
+                        // Insert a new paragraph after the block
+                        const p = document.createElement('p');
+                        p.innerHTML = '<br>';
+                        container.after(p);
+                        // Move cursor into the new paragraph
+                        const newRange = document.createRange();
+                        newRange.setStart(p, 0);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        syncContent();
+                        return;
+                    }
+                }
+            }
+        }
+        // Keyboard shortcuts
         if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
             if (e.key === 'b') { e.preventDefault(); document.execCommand('bold'); syncContent(); }
             if (e.key === 'i') { e.preventDefault(); document.execCommand('italic'); syncContent(); }
@@ -254,10 +287,21 @@
     }
 
     // --- API for Rust ---
+    // Ensure content ends with a paragraph so user can always type after blocks
+    function ensureTrailingParagraph(editor) {
+        if (!editor) return;
+        const last = editor.lastElementChild;
+        if (!last || last.tagName === 'PRE' || last.tagName === 'BLOCKQUOTE' || last.tagName === 'HR' || last.tagName === 'TABLE' || last.tagName === 'UL' || last.tagName === 'OL') {
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            editor.appendChild(p);
+        }
+    }
+
     window.__moteEditor = {
         setContent: function(html) {
             const editor = ensureEditor();
-            if (editor) editor.innerHTML = html || '';
+            if (editor) { editor.innerHTML = html || ''; ensureTrailingParagraph(editor); }
         },
         getContent: function() {
             const editor = document.querySelector('.mote-ce-editor');
@@ -277,6 +321,7 @@
             const editor = ensureEditor();
             if (editor) {
                 editor.innerHTML = window.__motePendingHtml;
+                ensureTrailingParagraph(editor);
                 editor.focus();
             } else {
                 setTimeout(tryInit, 50);
