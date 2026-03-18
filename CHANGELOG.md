@@ -9,6 +9,13 @@
   - Runs on app launch and workspace switch
 - **`mote-data/` data directory** — all DB and files now live under `workspace/mote-data/`, keeping the workspace root clean
   - Auto-migration: legacy `.mote.db`, `docs/`, `notes/` at root are moved into `mote-data/`
+- **Git auto-commit & push** — every create/edit/delete auto-commits to git in `mote-data/` and pushes to remote
+  - `git init` with `.gitignore` for SQLite temp files on workspace open
+  - Background thread: `git add -A` → `git commit` → `git push` (non-blocking)
+  - Push only runs if commit succeeded and a remote is configured
+  - Data repo: `netadx1ai/motedata` (private)
+- **Sidebar delete button** — hover-reveal `×` button on every tree node for quick delete
+- **Default workspace** — falls back to `/Volumes/T7Shield/Work2026/mote` when no config exists
 - **`bundle-macos.sh`** — build + deploy macOS `.app` bundle in one command
 
 ### Fixed

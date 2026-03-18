@@ -388,9 +388,18 @@ pub fn git_commit_async(data_path: PathBuf, message: String) {
             .current_dir(&data_path)
             .output();
         // Commit (no-op if nothing to commit)
-        let _ = Command::new("git")
+        let output = Command::new("git")
             .args(["commit", "-m", &message, "--allow-empty-message", "--no-gpg-sign"])
             .current_dir(&data_path)
             .output();
+        // Push if commit succeeded and remote exists
+        if let Ok(o) = output {
+            if o.status.success() {
+                let _ = Command::new("git")
+                    .args(["push"])
+                    .current_dir(&data_path)
+                    .output();
+            }
+        }
     });
 }

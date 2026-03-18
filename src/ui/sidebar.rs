@@ -178,6 +178,7 @@ fn TreeNode(
     // Clones for event handlers
     let id_dragstart = item.id.clone();
     let id_click = item.id.clone();
+    let id_delete = item.id.clone();
     let id_status = item.id.clone();
     let task_status = item.status.clone();
 
@@ -242,8 +243,25 @@ fn TreeNode(
                     span { class: "node-icon", "{icon}" }
                 }
                 span { class: "node-title", "{item.title}" }
+                // Delete button (hover-reveal)
+                button {
+                    class: "node-delete-btn",
+                    onclick: move |e| {
+                        e.stop_propagation();
+                        let _ = with_storage(state, |storage| {
+                            storage.delete_item(&id_delete)?;
+                            Ok(())
+                        });
+                        // Clear active item if it was the deleted one
+                        let active = state.read().active_item.as_ref().map(|i| i.id.clone());
+                        if active.as_deref() == Some(&*id_delete) {
+                            state.write().active_item = None;
+                        }
+                    },
+                    "×"
+                }
                 if has_children {
-                    span { style: "margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.2);", "{children.len()}" }
+                    span { class: "node-child-count", "{children.len()}" }
                 }
             }
 
