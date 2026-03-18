@@ -539,5 +539,21 @@ input:focus, textarea:focus { border-color: #528bff; }
     box-shadow: inset 0 0 0 1px rgba(82,139,255,0.5);
 }
 
+/* Sidebar node actions */
+.node-delete-btn {
+    margin-left: auto; flex-shrink: 0;
+    width: 18px; height: 18px; font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; color: rgba(255,255,255,0.15);
+    opacity: 0; transition: all 0.1s;
+}
+.tree-node:hover .node-delete-btn { opacity: 1; }
+.node-delete-btn:hover { background: #dc2626; color: white; }
+
+.node-child-count {
+    flex-shrink: 0; font-size: 10px; color: rgba(255,255,255,0.2);
+    margin-left: 4px;
+}
+
 .node-icon.status-click { cursor: pointer; }
 .node-icon.status-click:hover { color: #528bff !important; }
