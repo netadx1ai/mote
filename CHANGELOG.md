@@ -14,6 +14,13 @@
   - Background thread: `git add -A` → `git commit` → `git push` (non-blocking)
   - Push only runs if commit succeeded and a remote is configured
   - Data repo: `netadx1ai/motedata` (private)
+- **WYSIWYG editor** — contenteditable rich text editor replacing the textarea+preview split
+  - Floating toolbar on text selection (B, I, S, H1-H3, UL, OL, Q, Code, Link)
+  - Slash commands via `/` keystroke with dropdown positioned near caret
+  - MD/RT mode switch to toggle between rich text and raw markdown
+  - Keyboard shortcuts: Cmd+B (bold), Cmd+I (italic), Cmd+U (underline)
+  - B2B monospace text icons throughout (no emoji)
+- **Project quick-add** — hover-reveal `+` button on projects to create child tasks
 - **Sidebar delete button** — hover-reveal `×` button on every tree node for quick delete
 - **Default workspace** — falls back to `/Volumes/T7Shield/Work2026/mote` when no config exists
 - **`bundle-macos.sh`** — build + deploy macOS `.app` bundle in one command
