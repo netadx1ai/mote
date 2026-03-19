@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.10.0] - 2026-03-20
+
+### Added
+- **Monaco editor swap** — toggle between Monaco editor and plain text view within Monaco mode
+  - New ⇄ button visible only in Monaco mode
+  - Instant swap with content sync between views
+  - Preserves cursor position and scroll state
+  - Perfect for quick edits without Monaco overhead
+
+### Fixed
+- **Full-screen responsive TUI** — app now uses entire viewport without wasted space
+  - Removed fixed padding from content container
+  - Editor height changed from `calc(100vh - 80px)` to `100vh`
+  - Added proper flex layout with `min-height: 0` for scrolling children
+  - All views (Task, Settings, Browser, File Explorer) use full height with internal scrolling
+  - Consistent 20px side padding in editor content areas
+
+- **Non-blocking keyboard input** — typing no longer blocked during save operations
+  - `update_item_field()` now runs async via `spawn(async move { ... })`
+  - `oninput` events only set pending state (lightweight)
+  - Auto-save timer continues in background (3s interval)
+  - Smooth typing experience even during database writes
+
+### Changed
+- Editor mode switch cycle: Rich Text → Markdown → Monaco → Rich Text
+- Monaco view toggle (⇄) separate from mode switch for clearer UX
+
 ## [0.9.0] - 2026-03-18
 
 ### Added

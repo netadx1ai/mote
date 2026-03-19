@@ -30,6 +30,7 @@ A lightweight, offline-first Notion clone built entirely in Rust with Dioxus. Ul
 | 3 | `03-documents` | Markdown editor, document tree/sidebar, notes view | Spec 2 | ✅ DONE |
 | 4 | `04-tasks` | Task lists, sub-tasks, status, priority, project grouping | Spec 2 | ✅ DONE |
 | 5 | `05-github-sync` | GitHub repo init/clone, push/pull sync, conflict resolution | Spec 2 | ⬜ TODO |
+| 6 | `06-ux-overhaul` | macOS 2026 design system, command palette, keyboard shortcuts, status bar, sidebar redesign, toast system, task enhancements, folder picker | Specs 1–4 | ⬜ TODO |
 
 ## Architecture
 

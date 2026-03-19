@@ -35,21 +35,24 @@ input, textarea {
 input:focus, textarea:focus { border-color: #528bff; }
 
 /* --- Layout --- */
-.app-shell { display: flex; height: 100vh; width: 100vw; }
+.app-shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
 .content {
-    flex: 1; overflow-y: auto;
-    padding: 40px 60px 40px 60px;
+    flex: 1; overflow: hidden;
+    padding: 0;
     background: #191919;
+    display: flex;
+    flex-direction: column;
 }
 
 /* --- Sidebar (Notion-style) --- */
 .sidebar {
-    width: 240px; min-width: 240px;
+    width: 240px; min-width: 240px; max-width: 240px;
     background: #202020;
     display: flex; flex-direction: column;
     height: 100vh; user-select: none;
     border-right: 1px solid rgba(255,255,255,0.04);
+    flex-shrink: 0;
 }
 
 .sidebar-header {
@@ -155,9 +158,15 @@ input:focus, textarea:focus { border-color: #528bff; }
 
 /* --- Empty State --- */
 .empty-state {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; height: 50vh;
-    color: rgba(255,255,255,0.2); text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex: 1;
+    color: rgba(255,255,255,0.2);
+    text-align: center;
+    padding: 40px 20px;
 }
 .empty-state h2 {
     font-size: 1.5em; margin-bottom: 8px;
@@ -166,13 +175,18 @@ input:focus, textarea:focus { border-color: #528bff; }
 
 /* --- Editor --- */
 .editor-container {
-    display: flex; flex-direction: column; height: calc(100vh - 80px);
+    display: flex; flex-direction: column;
+    height: 100vh;
     width: 100%;
+    overflow: hidden;
 }
 
 .editor-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding-bottom: 8px; margin-bottom: 4px;
+    padding: 12px 20px 8px 20px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
 .title-input {
@@ -200,24 +214,58 @@ input:focus, textarea:focus { border-color: #528bff; }
 
 /* Markdown textarea (full-width, code font) */
 .editor-textarea {
-    flex: 1; resize: none; width: 100%;
+    flex: 1;
+    resize: none;
+    width: 100%;
     font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 14px; line-height: 1.7;
-    background: #191919; border: none; border-radius: 0;
-    padding: 8px 0; overflow-y: auto;
-    color: rgba(255,255,255,0.8); tab-size: 2;
+    font-size: 14px;
+    line-height: 1.7;
+    background: #191919;
+    border: none;
+    border-radius: 0;
+    padding: 8px 20px 20px 20px;
+    overflow-y: auto;
+    color: rgba(255,255,255,0.8);
+    tab-size: 2;
 }
 .editor-textarea:focus { border: none; outline: none; }
 
 /* --- Editor Body (single pane, WYSIWYG) --- */
-.editor-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-.mote-editor-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.editor-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.mote-editor-wrap {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Monaco editor container for docs/notes */
+.editor-monaco {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    background: #191919;
+    border: none;
+    border-radius: 0;
+    overflow: hidden;
+}
 
 /* --- Contenteditable Editor --- */
 .mote-ce-editor {
-    flex: 1; overflow-y: auto; padding: 8px 0;
-    outline: none; cursor: text;
-    font-size: 15px; line-height: 1.75;
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 20px 20px 20px;
+    outline: none;
+    cursor: text;
+    font-size: 15px;
+    line-height: 1.75;
     color: rgba(255,255,255,0.85);
     caret-color: #528bff;
     min-height: 200px;
@@ -426,7 +474,13 @@ input:focus, textarea:focus { border-color: #528bff; }
 .editor-preview img { max-width: 100%; border-radius: 6px; }
 
 /* --- Task View --- */
-.task-view { max-width: 720px; margin: 0 auto; }
+.task-view {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 20px 40px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
 
 .task-header {
     display: flex; align-items: flex-start; justify-content: space-between;
@@ -533,7 +587,13 @@ input:focus, textarea:focus { border-color: #528bff; }
 .desc-textarea:focus { outline: 1px solid #528bff; }
 
 /* --- Settings --- */
-.settings { max-width: 640px; margin: 0 auto; }
+.settings {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px 20px 40px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
 .settings h2 { font-size: 1.5em; margin-bottom: 24px; color: rgba(255,255,255,0.9); font-weight: 600; }
 
 .settings-section {
@@ -587,7 +647,13 @@ input:focus, textarea:focus { border-color: #528bff; }
 .stat-card .stat-label { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 2px; }
 
 /* --- Browser Panel --- */
-.browser-panel { max-width: 640px; margin: 0 auto; }
+.browser-panel {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px 20px 40px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
 .browser-panel h2 { font-size: 1.5em; margin-bottom: 6px; color: rgba(255,255,255,0.9); font-weight: 600; }
 .browser-hint { font-size: 13px; color: rgba(255,255,255,0.3); margin-bottom: 20px; }
 
@@ -692,7 +758,11 @@ input:focus, textarea:focus { border-color: #528bff; }
 
 /* --- File Explorer --- */
 .fe-container {
-    display: flex; flex-direction: column; height: calc(100vh - 80px); width: 100%;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
 }
 
 .fe-tab-bar {
@@ -743,8 +813,12 @@ input:focus, textarea:focus { border-color: #528bff; }
 }
 
 .fe-monaco-container {
-    flex: 1; width: 100%; min-height: 200px;
-    background: #191919; border: none; border-radius: 0;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    background: #191919;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
 }
 
