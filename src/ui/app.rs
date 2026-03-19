@@ -138,7 +138,7 @@ where
     Ok(result)
 }
 
-/// Update an item field and refresh state.
+/// Update an item field and refresh state (async, non-blocking).
 pub fn update_item_field(
     mut state: Signal<AppState>,
     id: &str,
@@ -148,20 +148,24 @@ pub fn update_item_field(
     priority: Option<TaskPriority>,
 ) {
     let id = id.to_string();
-    let _ = with_storage(state, |storage| {
-        let updated = storage.update_item(UpdateItemRequest {
-            id: id.clone(),
-            title,
-            content,
-            status,
-            priority,
-            ..Default::default()
-        })?;
-        let st_active_id = state.read().active_item.as_ref().map(|i| i.id.clone());
-        if st_active_id.as_deref() == Some(&id) {
-            state.write().active_item = Some(updated);
-        }
-        Ok(())
+    // Run storage update in background to avoid blocking UI
+    spawn(async move {
+        let _ = with_storage(state, |storage| {
+            let updated = storage.update_item(UpdateItemRequest {
+                id: id.clone(),
+                title,
+                content,
+                status,
+                priority,
+                ..Default::default()
+            })?;
+            // Only update active item if it matches
+            let st_active_id = state.read().active_item.as_ref().map(|i| i.id.clone());
+            if st_active_id.as_deref() == Some(&id) {
+                state.write().active_item = Some(updated);
+            }
+            Ok(())
+        });
     });
 }
 
