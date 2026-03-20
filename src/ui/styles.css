@@ -347,6 +347,14 @@ input:focus, textarea:focus { border-color: var(--accent); }
     padding: 4px 20px;
     border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+.editor-area:hover .editor-toolbar,
+.editor-area:focus-within .editor-toolbar {
+    opacity: 1;
+    pointer-events: auto;
 }
 .editor-toolbar button {
     padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 700;
@@ -356,6 +364,24 @@ input:focus, textarea:focus { border-color: var(--accent); }
 }
 .editor-toolbar button:hover {
     background: var(--border-default); color: var(--text-primary);
+}
+
+/* ── Toolbar button ── */
+.toolbar-btn {
+    height: 28px;
+    min-width: 28px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    border-radius: var(--radius-sm, 6px);
+    color: var(--text-secondary, rgba(255,255,255,0.55));
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: background 80ms, color 80ms;
+}
+.toolbar-btn:hover {
+    background: var(--bg-surface-3, #1e1e24);
+    color: var(--text-primary, rgba(255,255,255,0.92));
 }
 
 /* Editor Body */
