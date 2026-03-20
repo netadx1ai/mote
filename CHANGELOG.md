@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.11.0] - 2026-03-21
+
+### Added
+- **css design token system** — complete `styles.css` rewrite with 30+ css custom properties (`--bg-base`, `--accent`, `--radius-*`, `--shadow-*`, etc.), 10 labeled sections, thin scrollbar, focus rings
+- **sidebar redesign** — unicode icons for all section buttons, hover-reveal `+` button, inline filter input, month grouping for notes, collapse toggle (`‹`/`›`), workspace header
+- **status bar** — 24px bottom bar showing save state (dot indicator: idle/saving/saved/unsaved), word count, item count
+- **savestate enum** — `Idle | Saving | Saved | Unsaved` wired to all db writes with 3s auto-reset
+- **keyboard shortcuts** — global `cmd+k` (command palette), `cmd+n` (new item), `cmd+s` (force save), `esc` (close/deselect), `cmd+1/2/3` (switch sections), `tab`/`shift+tab` indent in tasks
+- **command palette** — `cmd+k` overlay with fuzzy search across all items, arrow key navigation, grouped results by type (docs/tasks/notes), 150ms animation
+- **delete confirm + toast** — two-step delete (first click red, second executes), 5s undo toast with restore, `node-out` animation on delete
+- **empty state ctas** — "no document open" empty state with `+ new document` button; empty sidebar section state
+- **title field ux** — enter key jumps to editor body, auto-select on new doc focus, hover/focus border-bottom underline
+- **task status popover** — 4-option popover (◻ todo / ◑ in progress / ✓ done / ✕ cancelled) replacing toggle
+- **due date field** — `<input type="date">` in task detail, color-coded overdue/today/future
+- **priority chips** — inline chip row `[low] [med] [high] [urgent]` replacing dropdown
+- **editor toolbar ux** — toolbar hidden by default, reveals on editor hover/focus-within; h1/h2/h3 buttons added
+- **native folder picker** — `rfd` crate integration in settings; "browse..." button opens native os dialog; workspace name shown in sidebar header
+- **icons.rs** — centralized unicode icon constants module (`icon_doc`, `icon_task`, `icon_folder`, etc.)
+
+### Architecture
+- 9 parallel sub-agents via git worktree isolation — each agent owns a branch + pr
+- css-only agent to avoid merge conflicts on `styles.css`
+- `savestate` enum in `app.rs`, word count signal, `statusbar` component
+- `commandpalette` and `toastnotification` as standalone components
+- `due_date text` migration in sqlite with alter-table guard
+
+### Lessons Learned
+- agent swarm effective but cargo build on external volumes is slow → agents may time out before finishing
+- split css-only work into dedicated agent to prevent `styles.css` merge conflicts
+- always run a "fix-and-commit" consolidation agent after swarm waves
+- use `git worktree list` to quickly see which agents are still alive between sessions
+- always verify wave 1 agent output before launching wave 2
+
 ## [0.10.0] - 2026-03-20
 
 ### Added
