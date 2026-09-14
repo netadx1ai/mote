@@ -570,6 +570,12 @@
             if (e.key === 'b') { e.preventDefault(); document.execCommand('bold'); syncContent(); }
             if (e.key === 'i') { e.preventDefault(); document.execCommand('italic'); syncContent(); }
             if (e.key === 'u') { e.preventDefault(); document.execCommand('underline'); syncContent(); }
+            if (e.key === 's') {
+                e.preventDefault();
+                syncContent();
+                var saveBtn = document.getElementById('mote-save-bridge');
+                if (saveBtn) saveBtn.click();
+            }
         }
     }
 
@@ -654,4 +660,19 @@
         }
         tryInit();
     };
+
+    window.addEventListener('beforeunload', function() {
+        syncContent();
+    });
+    window.addEventListener('pagehide', function() {
+        syncContent();
+    });
+    window.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            e.preventDefault();
+            syncContent();
+            var saveBtn = document.getElementById('mote-save-bridge');
+            if (saveBtn) saveBtn.click();
+        }
+    });
 })();

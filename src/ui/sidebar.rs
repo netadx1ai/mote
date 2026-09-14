@@ -47,28 +47,64 @@ pub fn Sidebar(
             nav { class: "sections",
                 div {
                     class: if section == Section::Docs { "section-btn active" } else { "section-btn" },
-                    onclick: move |_| state.write().active_section = Section::Docs,
+                    onclick: move |_| {
+                        flush_editor_pending(state);
+                        state.write().active_section = Section::Docs;
+                        state.read().save_config();
+                    },
                     ondragover: move |e| { e.prevent_default(); },
-                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Document); state.write().active_section = Section::Docs; },
+                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Document); state.write().active_section = Section::Docs; state.read().save_config(); },
                     "Docs"
                 }
                 div {
                     class: if section == Section::Tasks { "section-btn active" } else { "section-btn" },
-                    onclick: move |_| state.write().active_section = Section::Tasks,
+                    onclick: move |_| {
+                        flush_editor_pending(state);
+                        state.write().active_section = Section::Tasks;
+                        state.read().save_config();
+                    },
                     ondragover: move |e| { e.prevent_default(); },
-                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Project); state.write().active_section = Section::Tasks; },
+                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Project); state.write().active_section = Section::Tasks; state.read().save_config(); },
                     "Tasks"
                 }
                 div {
                     class: if section == Section::Notes { "section-btn active" } else { "section-btn" },
-                    onclick: move |_| state.write().active_section = Section::Notes,
+                    onclick: move |_| {
+                        flush_editor_pending(state);
+                        state.write().active_section = Section::Notes;
+                        state.read().save_config();
+                    },
                     ondragover: move |e| { e.prevent_default(); },
-                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Note); state.write().active_section = Section::Notes; },
+                    ondrop: move |e| { e.stop_propagation(); drag_id.set(None); drop_pos.set(None); convert_to_section(state, ItemType::Note); state.write().active_section = Section::Notes; state.read().save_config(); },
                     "Notes"
                 }
-                div { class: if section == Section::Files { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Files, "Files" }
-                div { class: if section == Section::Browser { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Browser, "Web" }
-                div { class: if section == Section::Settings { "section-btn active" } else { "section-btn" }, onclick: move |_| state.write().active_section = Section::Settings, "Cfg" }
+                div {
+                    class: if section == Section::Files { "section-btn active" } else { "section-btn" },
+                    onclick: move |_| {
+                        flush_editor_pending(state);
+                        state.write().active_section = Section::Files;
+                        state.read().save_config();
+                    },
+                    "Files"
+                }
+                div {
+                    class: if section == Section::Browser { "section-btn active" } else { "section-btn" },
+                    onclick: move |_| {
+                        flush_editor_pending(state);
+                        state.write().active_section = Section::Browser;
+                        state.read().save_config();
+                    },
+                    "Web"
+                }
+                div {
+                    class: if section == Section::Settings { "section-btn active" } else { "section-btn" },
+                    onclick: move |_| {
+                        flush_editor_pending(state);
+                        state.write().active_section = Section::Settings;
+                        state.read().save_config();
+                    },
+                    "Cfg"
+                }
             }
             div { class: "tree-container",
                 match section {
@@ -126,6 +162,7 @@ pub fn Sidebar(
 }
 
 fn create_item(mut state: Signal<AppState>, item_type: ItemType) {
+    flush_editor_pending(state);
     let (title, content, status, priority) = match item_type {
         ItemType::Document => ("Untitled".to_string(), Some("# Untitled\n\n".to_string()), None, None),
         ItemType::Note => {
@@ -142,6 +179,7 @@ fn create_item(mut state: Signal<AppState>, item_type: ItemType) {
             title, item_type, parent_id: None, content, status, priority,
         })?;
         state.write().active_item = Some(item);
+        state.read().save_config();
         Ok(())
     });
 }
@@ -161,7 +199,7 @@ fn get_cross_drag() -> Option<String> {
 }
 
 /// Convert a dragged item to the target section's type.
-fn convert_to_section(mut state: Signal<AppState>, target_type: ItemType) {
+fn convert_to_section(state: Signal<AppState>, target_type: ItemType) {
     if let Some(id) = get_cross_drag() {
         let target = target_type.clone();
         let _ = with_storage(state, |storage| {
@@ -282,6 +320,7 @@ fn TreeNode(
                     let _ = with_storage(state, |storage| {
                         let loaded = storage.get_item(&id_click)?;
                         state.write().active_item = Some(loaded);
+                        state.read().save_config();
                         Ok(())
                     });
                 },
@@ -310,6 +349,7 @@ fn TreeNode(
                         title: "Add task",
                         onclick: move |e| {
                             e.stop_propagation();
+                            flush_editor_pending(state);
                             let parent = id_add_task.clone();
                             let _ = with_storage(state, |storage| {
                                 let item = storage.create_item(CreateItemRequest {
@@ -321,6 +361,7 @@ fn TreeNode(
                                     priority: Some(TaskPriority::None),
                                 })?;
                                 state.write().active_item = Some(item);
+                                state.read().save_config();
                                 Ok(())
                             });
                         },

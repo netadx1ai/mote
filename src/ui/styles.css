@@ -212,6 +212,33 @@ input:focus, textarea:focus { border-color: #528bff; }
 }
 .mode-switch:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
 
+.save-indicator {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 10px;
+    flex-shrink: 0;
+    user-select: none;
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+}
+.save-indicator.saved { color: #4ade80; }
+.save-indicator.saving { color: #fbbf24; }
+.save-indicator.unsaved { color: #f87171; }
+
+.btn-save {
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #528bff;
+    background: rgba(82, 139, 255, 0.1);
+    transition: all 0.12s;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+.btn-save:hover { background: rgba(82, 139, 255, 0.2); }
+.text-danger { color: #ef4444 !important; }
+
 /* Markdown textarea (full-width, code font) */
 .editor-textarea {
     flex: 1;

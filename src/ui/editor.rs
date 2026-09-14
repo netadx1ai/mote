@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::models::*;
-use crate::ui::app::{clear_editor_pending, set_editor_pending, update_item_field, AppState};
+use crate::ui::app::{clear_editor_pending, save_editor_content, set_editor_pending, update_item_field, AppState};
 use crate::ui::markdown::render_markdown;
 
 const EDITOR_JS: &str = include_str!("editor_init.js");
@@ -21,16 +21,14 @@ fn eval_init_editor(html: &str) {
     dioxus::document::eval(&js);
 }
 
-/// Save content to storage directly (called by auto-save timer)
+/// Save content to storage directly
 fn save_now(state: Signal<AppState>, id: &str, content: &str) {
-    let id = id.to_string();
-    let content = content.to_string();
-    update_item_field(state, &id, None, Some(content), None, None);
+    save_editor_content(state, id, content.to_string());
     clear_editor_pending();
 }
 
 /// Pull latest HTML from WYSIWYG editor into the content signal
-fn sync_rt_to_content(content: &mut Signal<String>, item_id: &Signal<String>) {
+fn sync_rt_to_content() {
     dioxus::document::eval(
         "if(window.__moteEditor){var b=document.getElementById('mote-content-bridge');if(b){var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(b,window.__moteEditor.getContent());b.dispatchEvent(new Event('input',{bubbles:true}));}}"
     );
@@ -71,6 +69,8 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
     let mut monaco_inited = use_signal(|| false);
     let mut monaco_view = use_signal(|| true); // true = Monaco, false = Text view
     let mut last_saved = use_signal(|| item.content.clone().unwrap_or_default());
+    let mut save_status = use_signal(|| "Saved"); // "Saved", "Saving...", "Unsaved"
+    let mut edit_tick = use_signal(|| 0u64);
 
     // Detect item switch — save previous item first, then load new
     let current_id = item.id.clone();
@@ -83,13 +83,15 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
             save_now(state, &prev_id, &prev_content);
         }
 
-        content.set(item.content.clone().unwrap_or_default());
-        last_saved.set(item.content.clone().unwrap_or_default());
+        let new_content = item.content.clone().unwrap_or_default();
+        content.set(new_content.clone());
+        last_saved.set(new_content);
         title.set(item.title.clone());
         item_id.set(current_id.clone());
         editor_inited.set(false);
         monaco_inited.set(false);
         monaco_view.set(true);
+        save_status.set("Saved");
         clear_editor_pending();
     }
 
@@ -105,11 +107,6 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
         init_monaco_editor(&content.read());
     }
 
-    // Update Monaco content when switching to Monaco view
-    if show_monaco && *monaco_inited.read() {
-        update_monaco_content(&content.read());
-    }
-
     // Init RT editor when in RT mode and not yet initialized for this item
     if is_rt && !*editor_inited.read() {
         let html = render_markdown(&content.read());
@@ -117,8 +114,28 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
         editor_inited.set(true);
     }
 
-    // Auto-save: use JS setInterval to trigger save every 3 seconds
-    // The JS calls syncContent which updates the bridge, then we save from Rust
+    // Debounced auto-save engine: runs 1.2s after last typing activity
+    use_future(move || {
+        let tick = *edit_tick.read();
+        async move {
+            if tick == 0 {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+            if *edit_tick.peek() == tick {
+                let id = item_id.read().clone();
+                let text = content.read().clone();
+                if !id.is_empty() && text != *last_saved.peek() {
+                    save_status.set("Saving...");
+                    save_now(state, &id, &text);
+                    last_saved.set(text);
+                    save_status.set("Saved");
+                }
+            }
+        }
+    });
+
+    // Periodic safety sync from JS editor
     use_effect(move || {
         dioxus::document::eval(
             "if(!window.__moteAutoSave){window.__moteAutoSave=setInterval(function(){if(window.__moteEditor){var b=document.getElementById('mote-content-bridge');if(b){var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(b,window.__moteEditor.getContent());b.dispatchEvent(new Event('input',{bubbles:true}));}}},3000);}"
@@ -130,7 +147,7 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
 
     rsx! {
         div { class: "editor-container",
-            // Title + mode toggle
+            // Title + mode toggle + save status
             div { class: "editor-header",
                 input {
                     class: "title-input",
@@ -144,18 +161,47 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
                     },
                 }
                 span { class: "editor-stats", "{word_count}w · {line_count}L" }
+
+                // Save indicator & manual save button
+                span {
+                    class: match *save_status.read() {
+                        "Saved" => "save-indicator saved",
+                        "Saving..." => "save-indicator saving",
+                        _ => "save-indicator unsaved",
+                    },
+                    title: "Auto-saves automatically, or press Cmd+S",
+                    match *save_status.read() {
+                        "Saved" => "✓ Saved",
+                        "Saving..." => "Saving...",
+                        _ => "● Unsaved",
+                    }
+                }
+
+                button {
+                    class: "btn-save",
+                    title: "Save immediately (Cmd+S)",
+                    onclick: move |_| {
+                        let id = item_id.read().clone();
+                        let text = content.read().clone();
+                        if !id.is_empty() {
+                            save_status.set("Saving...");
+                            save_now(state, &id, &text);
+                            last_saved.set(text);
+                            save_status.set("Saved");
+                        }
+                    },
+                    "Save"
+                }
+
                 if is_monaco {
                     button {
                         class: "mode-switch",
                         title: "Swap between Monaco and Text view",
                         onclick: move |_| {
-                            // Toggle between Monaco and plain textarea within Monaco mode
                             let is_currently_monaco = *monaco_view.read();
                             if is_currently_monaco {
-                                // Switching to text view - sync from Monaco first
                                 sync_monaco_to_bridge();
                             } else {
-                                // Switching to Monaco - update Monaco with current content
                                 let current_content = content.read().clone();
                                 update_monaco_content(&current_content);
                             }
@@ -171,7 +217,7 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
                         let current = *mode.read();
                         match current {
                             EditorMode::Richtext => {
-                                sync_rt_to_content(&mut content, &item_id);
+                                sync_rt_to_content();
                                 mode.set(EditorMode::Markdown);
                             }
                             EditorMode::Markdown => {
@@ -210,14 +256,19 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
                         value: "{content}",
                         placeholder: "Write markdown...",
                         oninput: move |e| {
-                            content.set(e.value());
-                            set_editor_pending(&item_id.read(), &content.read());
+                            let val = e.value();
+                            content.set(val.clone());
+                            set_editor_pending(&item_id.read(), &val);
+                            save_status.set("Unsaved");
+                            *edit_tick.write() += 1;
                         },
                         onblur: move |_| {
                             let text = content.read().clone();
                             let id = item_id.read().clone();
+                            save_status.set("Saving...");
                             save_now(state, &id, &text);
                             last_saved.set(text);
+                            save_status.set("Saved");
                         },
                     }
                 }
@@ -233,6 +284,8 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
                     if !html.is_empty() {
                         content.set(html.clone());
                         set_editor_pending(&item_id.read(), &html);
+                        save_status.set("Unsaved");
+                        *edit_tick.write() += 1;
                     }
                 },
             }
@@ -247,6 +300,24 @@ pub fn Editor(state: Signal<AppState>, item: Item) -> Element {
                     if !val.is_empty() {
                         content.set(val.clone());
                         set_editor_pending(&item_id.read(), &val);
+                        save_status.set("Unsaved");
+                        *edit_tick.write() += 1;
+                    }
+                },
+            }
+
+            // Hidden save bridge for keyboard shortcut Cmd+S & Monaco save
+            button {
+                id: "mote-save-bridge",
+                style: "display: none;",
+                onclick: move |_| {
+                    let id = item_id.read().clone();
+                    let text = content.read().clone();
+                    if !id.is_empty() {
+                        save_status.set("Saving...");
+                        save_now(state, &id, &text);
+                        last_saved.set(text);
+                        save_status.set("Saved");
                     }
                 },
             }
