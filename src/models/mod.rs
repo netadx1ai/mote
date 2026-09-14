@@ -223,9 +223,13 @@ pub struct SearchResult {
     pub score: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkspaceConfig {
     pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub last_item_id: Option<String>,
+    #[serde(default)]
+    pub last_section: Option<String>,
 }
 
 /// Task filter for UI views.

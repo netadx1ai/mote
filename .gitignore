@@ -11,3 +11,7 @@ Thumbs.db
 # Workspace data (user content)
 .mote.db
 mote-data/
+
+# Generated & Index
+.cocoindex_code
+assets/cm/

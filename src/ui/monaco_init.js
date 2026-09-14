@@ -131,7 +131,7 @@ window.__moteMonacoMount = function(content, language, tabId) {
 
     // Cmd+S / Ctrl+S save
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
-        var saveBtn = document.getElementById('monaco-save-btn');
+        var saveBtn = document.getElementById('monaco-save-btn') || document.getElementById('mote-save-bridge');
         if (saveBtn) saveBtn.click();
     });
 };

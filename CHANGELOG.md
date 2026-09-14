@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.12.0] - 2026-09-14
+
+### Added
+- **Debounced Auto-Save Engine** — 1.2s inactivity debounce in `editor.rs` that writes directly to disk and SQLite search index across Rich-Text, Markdown, and Monaco modes.
+- **Serialized Git Worker (`git.rs`)** — background worker with MPSC channel executing git operations sequentially, preventing race conditions and index collisions.
+- **Self-Healing Index Lock** — automatic recovery of stale `.git/index.lock` files left behind by unclean shutdowns.
+- **GitHub & Git Sync Settings** — new UI section in `settings.rs` displaying branch, remote URL, live status/errors, "Set Remote" input, and manual "Sync with GitHub" trigger.
+- **Save Status Indicator & Cmd+S** — visual indicator (`✓ Saved`, `Saving...`, `● Unsaved`), manual "Save" button, and global `Cmd+S` / `Ctrl+S` shortcut across all editor modes.
+- **Lifecycle Flush Hooks** — desktop window close, destroy, and loop termination handlers in `main.rs` flushing pending edits before process exit.
+- **Workspace State Restoration** — `config.json` now stores `last_item_id` and `last_section`, seamlessly reopening the exact document active before quit.
+- **Navigation & Creation Flush** — switching sidebar sections or adding new items immediately flushes pending text to disk.
+- **Task View Auto-Save** — task description input now tracks pending edits and auto-saves on debounce and blur.
+
+### Fixed
+- **Critical data loss on close/restart** — fixed bug where editor auto-save timer only modified in-memory RAM (`EDITOR_PENDING`) without writing to disk.
+- **Git concurrency collisions** — eliminated `.git/index.lock` failures caused by spawning unbounded background threads for each edit.
+- **Silent Git failures** — enriched macOS GUI environment with proper `PATH`, `GIT_TERMINAL_PROMPT=0`, and clear error reporting.
+
+### Architecture
+- `GLOBAL_STORAGE` static reference for out-of-band synchronous flushing during window lifecycle events.
+- `save_editor_content()` separates document body persistence from expensive full tree re-renders.
+- Dedicated single-worker queue for all repository commits and pushes.
+
+### Lessons Learned
+- In desktop webview apps, in-memory pending buffers must always be backed by continuous debounced disk persistence and window exit lifecycle hooks.
+- Background git operations must be serialized via a worker queue to prevent `.git/index.lock` conflicts.
+- GUI macOS apps do not inherit interactive shell `PATH`; explicit binary search paths and `GIT_TERMINAL_PROMPT=0` are required.
+
 ## [0.11.0] - 2026-03-21
 
 ### Added

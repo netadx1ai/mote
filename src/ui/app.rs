@@ -31,12 +31,27 @@ pub enum Section {
     Settings,
 }
 
+impl Section {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Section::Docs => "docs",
+            Section::Tasks => "tasks",
+            Section::Notes => "notes",
+            Section::Files => "files",
+            Section::Browser => "browser",
+            Section::Settings => "settings",
+        }
+    }
+}
+
 fn config_file_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("mote")
         .join("config.json")
 }
+
+pub static GLOBAL_STORAGE: std::sync::Mutex<Option<Arc<Storage>>> = std::sync::Mutex::new(None);
 
 impl AppState {
     fn new() -> Self {
@@ -49,8 +64,8 @@ impl AppState {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok());
 
-        let workspace_path = saved
-            .and_then(|c| c.workspace_path.map(PathBuf::from))
+        let workspace_path = saved.as_ref()
+            .and_then(|c| c.workspace_path.clone().map(PathBuf::from))
             .or_else(|| Some(PathBuf::from("/Volumes/T7Shield/Work2026/mote")));
 
         if let Some(ref wp) = workspace_path {
@@ -58,12 +73,30 @@ impl AppState {
                 let _ = storage.files.ensure_dirs();
                 let _ = storage.sync_filesystem();
                 let tree = storage.get_tree().unwrap_or_default();
+                let storage_arc = Arc::new(storage);
+                if let Ok(mut g) = GLOBAL_STORAGE.lock() {
+                    *g = Some(storage_arc.clone());
+                }
+
+                let active_section = match saved.as_ref().and_then(|c| c.last_section.as_deref()) {
+                    Some("tasks") => Section::Tasks,
+                    Some("notes") => Section::Notes,
+                    Some("files") => Section::Files,
+                    Some("browser") => Section::Browser,
+                    Some("settings") => Section::Settings,
+                    _ => Section::Docs,
+                };
+
+                let active_item = saved.as_ref()
+                    .and_then(|c| c.last_item_id.as_deref())
+                    .and_then(|id| storage_arc.get_item(id).ok());
+
                 return AppState {
-                    storage: Some(Arc::new(storage)),
+                    storage: Some(storage_arc),
                     workspace_path: Some(wp.clone()),
                     tree,
-                    active_item: None,
-                    active_section: Section::Docs,
+                    active_item,
+                    active_section,
                 };
             }
         }
@@ -80,6 +113,8 @@ impl AppState {
     pub fn save_config(&self) {
         let config = WorkspaceConfig {
             workspace_path: self.workspace_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+            last_item_id: self.active_item.as_ref().map(|i| i.id.clone()),
+            last_section: Some(self.active_section.as_str().to_string()),
         };
         let path = config_file_path();
         if let Some(parent) = path.parent() {
@@ -115,8 +150,12 @@ pub fn open_workspace(mut state: Signal<AppState>, path: PathBuf) -> Result<(), 
     let _ = storage.files.ensure_dirs();
     let _ = storage.sync_filesystem();
     let tree = storage.get_tree().unwrap_or_default();
+    let storage_arc = Arc::new(storage);
+    if let Ok(mut g) = GLOBAL_STORAGE.lock() {
+        *g = Some(storage_arc.clone());
+    }
     let mut st = state.write();
-    st.storage = Some(Arc::new(storage));
+    st.storage = Some(storage_arc);
     st.workspace_path = Some(path);
     st.tree = tree;
     st.active_item = None;
@@ -136,6 +175,31 @@ where
     let tree = storage.get_tree().unwrap_or_default();
     state.write().tree = tree;
     Ok(result)
+}
+
+/// Directly save editor content to disk without triggering a tree re-render.
+pub fn save_editor_content(
+    mut state: Signal<AppState>,
+    id: &str,
+    content: String,
+) {
+    let id_str = id.to_string();
+    let st = state.read();
+    if let Some(ref storage) = st.storage {
+        let storage = storage.clone();
+        drop(st);
+        if let Ok(updated) = storage.update_item(UpdateItemRequest {
+            id: id_str.clone(),
+            content: Some(content),
+            ..Default::default()
+        }) {
+            let active_id = state.read().active_item.as_ref().map(|i| i.id.clone());
+            if active_id.as_deref() == Some(&id_str) {
+                state.write().active_item = Some(updated);
+            }
+        }
+    }
+    clear_editor_pending();
 }
 
 /// Update an item field and refresh state (async, non-blocking).
@@ -187,19 +251,41 @@ pub fn clear_editor_pending() {
     }
 }
 
-/// Flush any pending editor content to storage. Called by sidebar BEFORE switching items.
-pub fn flush_editor_pending(state: Signal<AppState>) {
+/// Flush any pending editor content globally (independent of UI signals).
+/// Called on window close, quit, or event loop destroy.
+pub fn flush_editor_pending_global() {
+    let pending = EDITOR_PENDING.lock().ok().and_then(|mut p| p.take());
+    if let Some((id, content)) = pending {
+        if let Ok(storage_lock) = GLOBAL_STORAGE.lock() {
+            if let Some(ref storage) = *storage_lock {
+                let _ = storage.update_item(UpdateItemRequest {
+                    id,
+                    content: Some(content),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+}
+
+/// Flush any pending editor content to storage. Called by sidebar BEFORE switching items/sections.
+pub fn flush_editor_pending(mut state: Signal<AppState>) {
     let pending = EDITOR_PENDING.lock().ok().and_then(|mut p| p.take());
     if let Some((id, content)) = pending {
         let st = state.read();
         if let Some(ref storage) = st.storage {
             let storage = storage.clone();
             drop(st);
-            let _ = storage.update_item(UpdateItemRequest {
-                id,
+            if let Ok(updated) = storage.update_item(UpdateItemRequest {
+                id: id.clone(),
                 content: Some(content),
                 ..Default::default()
-            });
+            }) {
+                let active_id = state.read().active_item.as_ref().map(|i| i.id.clone());
+                if active_id.as_deref() == Some(&id) {
+                    state.write().active_item = Some(updated);
+                }
+            }
         }
     }
 }

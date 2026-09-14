@@ -1,13 +1,16 @@
 mod db;
 mod files;
 pub mod backup;
+pub mod git;
 
 pub use db::Database;
 pub use files::FileManager;
+pub use git::GitManager;
 
 use crate::models::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 /// Position for reorder operations.
 #[derive(Clone, Copy, PartialEq)]
@@ -26,6 +29,7 @@ pub struct Storage {
     pub(crate) db: Database,
     pub(crate) files: FileManager,
     pub data_path: PathBuf,
+    pub git: Arc<GitManager>,
 }
 
 impl Storage {
@@ -37,7 +41,8 @@ impl Storage {
         let files = FileManager::new(&data_path);
         // Initialize git repo in mote-data/ if not already present
         git_init(&data_path);
-        Ok(Storage { db, files, data_path })
+        let git = Arc::new(GitManager::new(&data_path));
+        Ok(Storage { db, files, data_path, git })
     }
 
     pub fn create_item(&self, req: CreateItemRequest) -> Result<Item, String> {
@@ -104,7 +109,7 @@ impl Storage {
             let _ = self.db.index_item(&item.id, item.item_type.as_str(), &item.title, content);
         }
 
-        git_commit_async(self.data_path.clone(), format!("add: {}", item.title));
+        self.git.commit_and_push(self.data_path.clone(), format!("add: {}", item.title));
         Ok(item)
     }
 
@@ -156,7 +161,7 @@ impl Storage {
         item.updated_at = chrono::Utc::now();
         self.db.update_item(&item).map_err(|e| e.to_string())?;
         if has_content_change {
-            git_commit_async(self.data_path.clone(), format!("edit: {}", item.title));
+            self.git.commit_and_push(self.data_path.clone(), format!("edit: {}", item.title));
         }
         Ok(item)
     }
@@ -200,14 +205,14 @@ impl Storage {
         self.db.update_item_type(id, new_type.as_str(), new_file_path.as_deref())
             .map_err(|e| e.to_string())?;
 
-        git_commit_async(self.data_path.clone(), format!("convert: {} → {}", item.title, new_type.as_str()));
+        self.git.commit_and_push(self.data_path.clone(), format!("convert: {} → {}", item.title, new_type.as_str()));
         Ok(())
     }
 
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
         self.db.soft_delete(id).map_err(|e| e.to_string())?;
         let _ = self.db.remove_from_index(id);
-        git_commit_async(self.data_path.clone(), format!("delete: {id}"));
+        self.git.commit_and_push(self.data_path.clone(), format!("delete: {id}"));
         Ok(())
     }
 
@@ -422,27 +427,8 @@ fn git_init(data_path: &Path) {
     }
 }
 
-/// Auto-commit all changes in the data directory (runs in background thread).
+/// Auto-commit all changes in the data directory (delegates to background worker).
 pub fn git_commit_async(data_path: PathBuf, message: String) {
-    std::thread::spawn(move || {
-        // Stage all changes
-        let _ = Command::new("git")
-            .args(["add", "-A"])
-            .current_dir(&data_path)
-            .output();
-        // Commit (no-op if nothing to commit)
-        let output = Command::new("git")
-            .args(["commit", "-m", &message, "--allow-empty-message", "--no-gpg-sign"])
-            .current_dir(&data_path)
-            .output();
-        // Push if commit succeeded and remote exists
-        if let Ok(o) = output {
-            if o.status.success() {
-                let _ = Command::new("git")
-                    .args(["push"])
-                    .current_dir(&data_path)
-                    .output();
-            }
-        }
-    });
+    let git = GitManager::new(&data_path);
+    git.commit_and_push(data_path, message);
 }

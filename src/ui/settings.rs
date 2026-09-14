@@ -14,12 +14,32 @@ pub fn Settings(state: Signal<AppState>) -> Element {
     let mut restore_path_input = use_signal(|| String::new());
     let mut export_path_input = use_signal(|| String::new());
     let mut import_path_input = use_signal(|| String::new());
+    let mut git_remote_input = use_signal(|| String::new());
     let mut new_workspace_input = use_signal(|| String::new());
 
     let st = state.read();
     let workspace_path_str = st.workspace_path.as_ref()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|| "Not set".to_string());
+
+    let git_status = st.storage.as_ref().map(|s| s.git.get_status());
+    let git_branch = git_status.as_ref().map(|s| s.branch.clone()).unwrap_or_else(|| "main".to_string());
+    let git_remote = git_status.as_ref().and_then(|s| s.remote_url.clone()).unwrap_or_else(|| "None (local only)".to_string());
+    let git_sync_desc = if let Some(ref gs) = git_status {
+        if gs.is_syncing {
+            "Syncing in background...".to_string()
+        } else if let Some(ref err) = gs.last_error {
+            format!("Error: {err}")
+        } else if let Some(ref t) = gs.last_synced {
+            format!("Synced to remote at {}", t.format("%Y-%m-%d %H:%M:%S UTC"))
+        } else if gs.remote_url.is_some() {
+            "Ready to sync (no push yet)".to_string()
+        } else {
+            "Local git initialized (no remote set)".to_string()
+        }
+    } else {
+        "No workspace active".to_string()
+    };
 
     // Single-pass stats
     let (mut total, mut docs, mut tasks, mut notes, mut projects, mut done) = (0, 0, 0, 0, 0, 0);
@@ -39,6 +59,66 @@ pub fn Settings(state: Signal<AppState>) -> Element {
     rsx! {
         div { class: "settings",
             h2 { "Settings" }
+
+            // GitHub & Git Sync
+            div { class: "settings-section",
+                h3 { "GitHub & Git Sync" }
+                p { style: "font-size: 12px; color: #5a6577; margin-bottom: 10px;",
+                    "Auto-commits your workspace data and pushes safely to GitHub."
+                }
+                div { class: "settings-row",
+                    label { "Branch:" }
+                    span { class: "value", "{git_branch}" }
+                }
+                div { class: "settings-row",
+                    label { "Remote URL:" }
+                    span { class: "value", "{git_remote}" }
+                }
+                div { class: "settings-row",
+                    label { "Status:" }
+                    span {
+                        class: if git_status.as_ref().and_then(|s| s.last_error.as_ref()).is_some() {
+                            "value text-danger"
+                        } else {
+                            "value"
+                        },
+                        "{git_sync_desc}"
+                    }
+                }
+                div { class: "settings-row", style: "margin-top: 8px;",
+                    input {
+                        class: "workspace-input", style: "flex: 1;",
+                        placeholder: "GitHub Remote URL (e.g. https://github.com/user/motedata.git)",
+                        value: "{git_remote_input}",
+                        oninput: move |e| git_remote_input.set(e.value()),
+                    }
+                    button {
+                        class: "btn-secondary",
+                        onclick: move |_| {
+                            let url = git_remote_input.read().trim().to_string();
+                            if url.is_empty() { set_msg(&mut status_msg, "Enter remote URL first", false); return; }
+                            let st = state.read();
+                            if let Some(ref storage) = st.storage {
+                                storage.git.set_remote(storage.data_path.clone(), url.clone());
+                                git_remote_input.set(String::new());
+                                set_msg(&mut status_msg, &format!("Remote updated to {url}"), true);
+                            }
+                        },
+                        "Set Remote"
+                    }
+                    button {
+                        class: "btn-success",
+                        onclick: move |_| {
+                            let st = state.read();
+                            if let Some(ref storage) = st.storage {
+                                storage.git.sync_now(storage.data_path.clone());
+                                set_msg(&mut status_msg, "Sync triggered in background", true);
+                            }
+                        },
+                        "Sync with GitHub"
+                    }
+                }
+            }
 
             // Workspace
             div { class: "settings-section",

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::models::*;
-use crate::ui::app::{flush_editor_pending, update_item_field, with_storage, AppState};
+use crate::ui::app::{clear_editor_pending, flush_editor_pending, set_editor_pending, update_item_field, with_storage, AppState};
 
 #[component]
 pub fn TaskView(state: Signal<AppState>, item: Item) -> Element {
@@ -10,6 +10,7 @@ pub fn TaskView(state: Signal<AppState>, item: Item) -> Element {
     let mut new_task = use_signal(|| String::new());
     let mut filter = use_signal(|| TaskFilter::All);
     let mut item_id = use_signal(|| item.id.clone());
+    let mut edit_tick = use_signal(|| 0u64);
     // Drag state
     let mut dragging_id = use_signal(|| Option::<String>::None);
     let mut drop_target_id = use_signal(|| Option::<String>::None);
@@ -20,6 +21,25 @@ pub fn TaskView(state: Signal<AppState>, item: Item) -> Element {
         desc.set(item.content.clone().unwrap_or_default());
         item_id.set(current_id);
     }
+
+    // Debounced save for description
+    use_future(move || {
+        let tick = *edit_tick.read();
+        async move {
+            if tick == 0 {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+            if *edit_tick.peek() == tick {
+                let id = item_id.read().clone();
+                let d = desc.read().clone();
+                if !id.is_empty() {
+                    update_item_field(state, &id, None, Some(d), None, None);
+                    clear_editor_pending();
+                }
+            }
+        }
+    });
 
     let tree = state.read().tree.clone();
     let children: Vec<Item> = tree.iter()
@@ -113,11 +133,17 @@ pub fn TaskView(state: Signal<AppState>, item: Item) -> Element {
                     class: "desc-textarea",
                     placeholder: "Add description (markdown)...",
                     value: "{desc}",
-                    oninput: move |e| desc.set(e.value()),
+                    oninput: move |e| {
+                        let val = e.value();
+                        desc.set(val.clone());
+                        set_editor_pending(&item_id.read(), &val);
+                        *edit_tick.write() += 1;
+                    },
                     onblur: move |_| {
                         let d = desc.read().clone();
                         let id = item_id.read().clone();
                         update_item_field(state, &id, None, Some(d), None, None);
+                        clear_editor_pending();
                     },
                 }
             }
